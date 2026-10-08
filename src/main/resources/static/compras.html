@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Compras</title>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-left">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark"></span>Nexorix</a>
+        <span id="navSlot" data-active="compras"></span>
+    </div>
+    <div class="who">
+        <span class="who-name" id="welcome"></span>
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <button class="button secondary small" id="logoutButton" type="button">Salir</button>
+    </div>
+</header>
+
+<main class="page" style="max-width:1100px">
+    <div class="page-head">
+        <div>
+            <h1>Mis compras</h1>
+            <p>Cuando registras un gasto, Nexorix te pregunta por WhatsApp <strong>qué compraste</strong>.
+               Respondes con una nota de voz 🎙️ y la IA llena tu tabla con las columnas que tú elijas.</p>
+        </div>
+    </div>
+
+    <!-- 1. WhatsApp -->
+    <section class="panel stack">
+        <div class="panel-head"><h2>Tu WhatsApp</h2><span id="waStatus"></span></div>
+        <div class="row">
+            <div class="field">
+                <label for="phone">Número de WhatsApp (con indicativo)</label>
+                <input type="tel" id="phone" placeholder="+57 300 123 4567" autocomplete="tel" maxlength="20">
+            </div>
+        </div>
+        <div class="quick-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="button" id="savePhone" type="button">Guardar número</button>
+            <button class="button secondary" id="toggleEnabled" type="button" hidden></button>
+            <button class="button secondary" id="removePhone" type="button" hidden>Quitar número</button>
+        </div>
+        <div id="verifyBox" hidden>
+            <p>Para conectar tu número, manda este código <strong>desde ese WhatsApp</strong><span id="toBusiness"></span>:</p>
+            <p><span class="code-box" id="code"></span></p>
+            <p><a class="button secondary small" id="waLink" href="#" target="_blank" rel="noopener" hidden>Abrir WhatsApp con el código</a></p>
+            <p class="muted" style="font-size:.85rem">El código vence en 30 minutos. Así sabemos que el número es tuyo y nadie más recibe tus preguntas.</p>
+        </div>
+        <p class="notice" id="waMessage" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- 2. Columnas -->
+    <section class="panel stack">
+        <div class="panel-head"><h2>Columnas de tu tabla</h2><span class="muted" style="font-size:.85rem">La IA llena cada una con lo que digas</span></div>
+        <div class="column-list" id="columns"></div>
+        <div class="column-item">
+            <input id="newLabel" placeholder="Nueva columna (ej. Garantía)" maxlength="40" aria-label="Nombre de la nueva columna">
+            <input id="newHint" placeholder="Qué debe poner la IA (ej. meses de garantía si los dice)" maxlength="200" aria-label="Descripción de la nueva columna">
+            <button class="button small" id="addColumn" type="button">Agregar</button>
+        </div>
+        <p class="notice" id="colMessage" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- 3. Tabla -->
+    <section class="panel stack">
+        <div class="panel-head">
+            <h2>Compras</h2>
+            <a class="button secondary small" href="/api/compras/compras.csv" download>Descargar CSV (Excel)</a>
+        </div>
+        <div class="table-wrap"><table class="purchase-table" id="table"></table></div>
+        <p class="notice" id="tableMessage" role="status" aria-live="polite"></p>
+    </section>
+</main>
+
+<script src="/nexorix.js"></script>
+<script src="/agente.js"></script>
+<script>
+    const $ = (id) => document.getElementById(id);
+    const esc = Nexorix.esc;
+    const money = Nexorix.money;
+
+    let columns = [];
+    let notes = [];
+    let editing = null;
+
+    async function api(path, options) {
+        const result = await Nexorix.api(path, options);
+        if (result.status === 401) {
+            window.location.href = "/login.html?expirada=1";
+            throw new Error("Sesion vencida");
+        }
+        return result;
+    }
+
+    async function header() {
+        const slot = $("navSlot");
+        slot.outerHTML = Nexorix.nav(slot.dataset.active);
+        const me = await api("/api/users/me");
+        if (me.ok && me.data) {
+            $("welcome").textContent = me.data.name;
+            $("avatar").textContent = Nexorix.initials(me.data.name);
+        }
+        $("logoutButton").addEventListener("click", async () => {
+            try { await Nexorix.api("/api/users/logout", { method: "POST" }); }
+            finally { window.location.href = "/login.html"; }
+        });
+    }
+
+    // ---------------- WhatsApp ----------------
+
+    function showSettings(s) {
+        const linked = !!s.phone;
+        if (linked && document.activeElement !== $("phone")) $("phone").value = "+" + s.phone;
+        $("waStatus").innerHTML = !linked ? '<span class="pill wait">Sin conectar</span>'
+            : !s.verified ? '<span class="pill warn">Falta verificar</span>'
+            : s.enabled ? '<span class="pill ok">Conectado</span>' : '<span class="pill done">En pausa</span>';
+        $("removePhone").hidden = !linked;
+        $("toggleEnabled").hidden = !(linked && s.verified);
+        $("toggleEnabled").textContent = s.enabled ? "Pausar preguntas" : "Reanudar preguntas";
+        $("toggleEnabled").dataset.enabled = String(s.enabled);
+
+        const pending = linked && !s.verified;
+        $("verifyBox").hidden = !pending;
+        if (pending) {
+            $("code").textContent = s.verificationCode ? "NEXORIX " + s.verificationCode : "—";
+            $("toBusiness").textContent = s.businessPhone ? " al +" + s.businessPhone : " al WhatsApp de Nexorix";
+            $("waLink").hidden = !(s.businessPhone && s.verificationCode);
+            if (s.businessPhone && s.verificationCode) {
+                $("waLink").href = "https://wa.me/" + encodeURIComponent(s.businessPhone)
+                    + "?text=" + encodeURIComponent("NEXORIX " + s.verificationCode);
+            }
+            if (!s.verificationCode) {
+                Nexorix.say($("waMessage"), "El código venció. Pulsa «Guardar número» para recibir uno nuevo.", "wait");
+            }
+        }
+    }
+
+    async function loadSettings() {
+        const r = await api("/api/compras/whatsapp");
+        if (r.ok) showSettings(r.data);
+        return r.ok ? r.data : null;
+    }
+
+    $("savePhone").addEventListener("click", async () => {
+        const r = await api("/api/compras/whatsapp", { method: "PUT", json: { phone: $("phone").value } });
+        if (!r.ok) return Nexorix.say($("waMessage"), Nexorix.errorOf(r, "No fue posible guardar el número."), "error");
+        Nexorix.say($("waMessage"), r.data.verified ? "Número guardado." : "Número guardado. Ahora manda el código desde tu WhatsApp.", "ok");
+        showSettings(r.data);
+        waitForVerification();
+    });
+
+    $("toggleEnabled").addEventListener("click", async () => {
+        const enabled = $("toggleEnabled").dataset.enabled !== "true";
+        const r = await api("/api/compras/whatsapp/activo", { method: "PUT", json: { enabled } });
+        if (!r.ok) return Nexorix.say($("waMessage"), Nexorix.errorOf(r, "No fue posible cambiar el estado."), "error");
+        showSettings(r.data);
+        Nexorix.toast(enabled ? "Preguntas reanudadas" : "Preguntas en pausa");
+    });
+
+    $("removePhone").addEventListener("click", async () => {
+        if (!confirm("¿Quitar tu número? Nexorix dejará de preguntarte por WhatsApp.")) return;
+        const r = await api("/api/compras/whatsapp", { method: "DELETE" });
+        if (!r.ok) return Nexorix.say($("waMessage"), Nexorix.errorOf(r, "No fue posible quitar el número."), "error");
+        $("phone").value = "";
+        Nexorix.say($("waMessage"), "", "");
+        loadSettings();
+    });
+
+    let verifyTimer;
+    function waitForVerification() {
+        clearInterval(verifyTimer);
+        verifyTimer = setInterval(async () => {
+            const s = await loadSettings();
+            if (!s || !s.phone || s.verified) {
+                clearInterval(verifyTimer);
+                if (s && s.verified) Nexorix.say($("waMessage"), "¡Tu WhatsApp quedó conectado! ✅", "ok");
+            }
+        }, 4000);
+    }
+
+    // ---------------- Columnas ----------------
+
+    function renderColumns() {
+        $("columns").innerHTML = columns.map(c => `
+            <div class="column-item" data-id="${c.id}">
+                <input data-f="label" value="${esc(c.label)}" maxlength="40" aria-label="Nombre de la columna">
+                <input data-f="hint" value="${esc(c.hint || "")}" maxlength="200" placeholder="Qué debe poner la IA" aria-label="Descripción">
+                <button class="button secondary small" data-del="${c.id}" type="button" aria-label="Borrar columna ${esc(c.label)}">${Nexorix.icon("trash")}</button>
+            </div>`).join("");
+
+        $("columns").querySelectorAll(".column-item").forEach(item => {
+            item.querySelectorAll("input").forEach(input => input.addEventListener("change", async () => {
+                const id = item.dataset.id;
+                const label = item.querySelector('[data-f="label"]').value;
+                const hint = item.querySelector('[data-f="hint"]').value;
+                const r = await api("/api/compras/columnas/" + id, { method: "PUT", json: { label, hint } });
+                if (!r.ok) return Nexorix.say($("colMessage"), Nexorix.errorOf(r, "No fue posible guardar la columna."), "error");
+                Nexorix.say($("colMessage"), "", "");
+                Nexorix.toast("Columna guardada");
+                await loadColumns();
+                renderTable();
+            }));
+        });
+        $("columns").querySelectorAll("[data-del]").forEach(button => button.addEventListener("click", async () => {
+            if (!confirm("¿Borrar esta columna? Los valores ya guardados dejarán de verse.")) return;
+            const r = await api("/api/compras/columnas/" + button.dataset.del, { method: "DELETE" });
+            if (!r.ok) return Nexorix.say($("colMessage"), Nexorix.errorOf(r, "No fue posible borrar la columna."), "error");
+            await loadColumns();
+            renderTable();
+        }));
+    }
+
+    async function loadColumns() {
+        const r = await api("/api/compras/columnas");
+        if (r.ok) { columns = r.data; renderColumns(); }
+    }
+
+    $("addColumn").addEventListener("click", async () => {
+        const r = await api("/api/compras/columnas", { method: "POST", json: { label: $("newLabel").value, hint: $("newHint").value } });
+        if (!r.ok) return Nexorix.say($("colMessage"), Nexorix.errorOf(r, "No fue posible agregar la columna."), "error");
+        $("newLabel").value = ""; $("newHint").value = "";
+        Nexorix.say($("colMessage"), "", "");
+        await loadColumns();
+        renderTable();
+    });
+
+    // ---------------- Tabla ----------------
+
+    const STATUS = {
+        PENDIENTE: '<span class="pill wait">Enviando</span>',
+        PREGUNTADA: '<span class="pill warn">Esperando tu nota de voz</span>',
+        RESPONDIDA: '<span class="pill ok">Lista</span>',
+        ERROR: '<span class="pill bad">No se pudo preguntar</span>'
+    };
+
+    function fmtDate(iso) {
+        const d = new Date(iso);
+        return isNaN(d) ? esc(iso) : d.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
+    }
+
+    function renderTable() {
+        if (!notes.length) {
+            $("table").innerHTML = '<tbody><tr><td class="empty">Todavía no hay compras. Conecta tu WhatsApp y registra un gasto en el panel.</td></tr></tbody>';
+            return;
+        }
+        const head = "<thead><tr><th>Fecha</th><th>Gasto</th><th>Monto</th>"
+            + columns.map(c => `<th>${esc(c.label)}</th>`).join("") + "<th>Estado</th><th></th></tr></thead>";
+
+        const rows = notes.map(n => {
+            const isEditing = editing === n.id;
+            const cells = columns.map(c => {
+                const value = (n.values || {})[c.key] || "";
+                return isEditing
+                    ? `<td><input data-key="${esc(c.key)}" value="${esc(value)}" maxlength="500" aria-label="${esc(c.label)}"></td>`
+                    : `<td>${esc(value) || '<span class="muted">—</span>'}</td>`;
+            }).join("");
+            const said = n.transcript ? `<span class="said" title="Lo que dijiste">${n.answerType === "VOZ" ? "🎙️ " : ""}“${esc(n.transcript)}”</span>` : "";
+            const error = n.errorMessage ? `<span class="said">${esc(n.errorMessage)}</span>` : "";
+            const actions = isEditing
+                ? `<button class="button small" data-save="${n.id}" type="button">Guardar</button>
+                   <button class="button secondary small" data-cancel type="button">Cancelar</button>`
+                : `<button class="button secondary small" data-edit="${n.id}" type="button">Editar</button>
+                   <button class="button secondary small" data-remove="${n.id}" type="button" aria-label="Borrar compra">${Nexorix.icon("trash")}</button>`;
+            return `<tr data-id="${n.id}">
+                <td>${fmtDate(n.purchaseDate)}</td>
+                <td>${esc(n.description)}${said}</td>
+                <td class="amt">${money(n.amount)}</td>
+                ${cells}
+                <td>${STATUS[n.status] || esc(n.status)}${error}</td>
+                <td><div class="row-actions">${actions}</div></td>
+            </tr>`;
+        }).join("");
+
+        $("table").innerHTML = head + "<tbody>" + rows + "</tbody>";
+
+        $("table").querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => { editing = Number(b.dataset.edit); renderTable(); }));
+        $("table").querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", () => { editing = null; renderTable(); }));
+        $("table").querySelectorAll("[data-save]").forEach(b => b.addEventListener("click", async () => {
+            const row = b.closest("tr");
+            const values = {};
+            row.querySelectorAll("input[data-key]").forEach(i => values[i.dataset.key] = i.value);
+            const r = await api("/api/compras/" + b.dataset.save, { method: "PUT", json: values });
+            if (!r.ok) return Nexorix.say($("tableMessage"), Nexorix.errorOf(r, "No fue posible guardar."), "error");
+            editing = null;
+            notes = notes.map(n => n.id === r.data.id ? r.data : n);
+            Nexorix.say($("tableMessage"), "", "");
+            renderTable();
+        }));
+        $("table").querySelectorAll("[data-remove]").forEach(b => b.addEventListener("click", async () => {
+            if (!confirm("¿Borrar esta fila? El gasto sigue en tus movimientos.")) return;
+            const r = await api("/api/compras/" + b.dataset.remove, { method: "DELETE" });
+            if (!r.ok) return Nexorix.say($("tableMessage"), Nexorix.errorOf(r, "No fue posible borrar."), "error");
+            notes = notes.filter(n => String(n.id) !== b.dataset.remove);
+            renderTable();
+        }));
+    }
+
+    async function loadNotes() {
+        if (editing !== null) return; // no pisar lo que la persona esta escribiendo
+        const r = await api("/api/compras");
+        if (r.ok) { notes = r.data; renderTable(); }
+    }
+
+    (async () => {
+        try {
+            await header();
+            const s = await loadSettings();
+            if (s && s.phone && !s.verified) waitForVerification();
+            await loadColumns();
+            await loadNotes();
+            // Las notas de voz llegan mientras la pagina esta abierta.
+            setInterval(() => { if (!document.hidden) loadNotes(); }, 10000);
+        } catch (e) { if (e.message !== "Sesion vencida") console.error(e); }
+    })();
+</script>
+</body>
+</html>

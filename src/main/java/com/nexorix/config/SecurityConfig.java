@@ -73,6 +73,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/recovery/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/kyc/webhook").permitAll()
+                        // Webhook de WhatsApp: GET para que Meta lo confirme, POST firmado con los mensajes.
+                        .requestMatchers("/api/whatsapp/webhook").permitAll()
                         .requestMatchers("/api/users/logout").permitAll()
                         // Todo lo demas de la API exige sesion iniciada.
                         .requestMatchers("/api/**").authenticated()

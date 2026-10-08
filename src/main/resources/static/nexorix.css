@@ -1760,3 +1760,37 @@ body.privacy .nexo .amt, body.privacy .trace-card .amt { filter: blur(7px); }
 .download-card small { color: var(--muted); font-weight: 500; }
 
 @media (max-width: 640px) { .download-row { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   Compras (tabla personalizada que se llena por WhatsApp)
+   ============================================================ */
+
+.table-wrap { overflow-x: auto; margin: 0 -4px; }
+
+.purchase-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+
+.purchase-table th,
+.purchase-table td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+
+.purchase-table th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); white-space: nowrap; }
+
+.purchase-table td.amt { white-space: nowrap; font-weight: 700; color: var(--spend); }
+
+.purchase-table .said { display: block; margin-top: 4px; color: var(--muted); font-size: .8rem; font-style: italic; }
+
+.purchase-table input { width: 100%; min-width: 110px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-s); font: inherit; }
+
+.purchase-table .row-actions { display: flex; gap: 6px; white-space: nowrap; }
+
+.column-list { display: grid; gap: 10px; }
+
+.column-item { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 2fr) auto; gap: 8px; align-items: center; }
+
+.column-item input { padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-s); font: inherit; }
+
+.code-box { display: inline-block; padding: 8px 16px; border-radius: var(--radius-s); background: var(--paper);
+    font-size: 1.4rem; font-weight: 800; letter-spacing: .2em; }
+
+@media (max-width: 640px) {
+    .column-item { grid-template-columns: 1fr; }
+}

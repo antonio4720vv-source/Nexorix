@@ -5,6 +5,8 @@ import com.nexorix.account.AccountRepository;
 import com.nexorix.importer.TransactionClassifier;
 import com.nexorix.user.User;
 import com.nexorix.user.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,19 +28,56 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher events;
 
+    @Autowired
+    public TransactionService(
+            TransactionRepository transactionRepository,
+            AccountRepository accountRepository,
+            UserRepository userRepository,
+            ApplicationEventPublisher events
+    ) {
+        this.transactionRepository = transactionRepository;
+        this.accountRepository = accountRepository;
+        this.userRepository = userRepository;
+        this.events = events;
+    }
+
+    /** Para pruebas: sin avisos de compra. */
     public TransactionService(
             TransactionRepository transactionRepository,
             AccountRepository accountRepository,
             UserRepository userRepository
     ) {
-        this.transactionRepository = transactionRepository;
-        this.accountRepository = accountRepository;
-        this.userRepository = userRepository;
+        this(transactionRepository, accountRepository, userRepository, event -> { });
     }
 
+    /**
+     * Registra un ingreso o un egreso escrito por la persona. Si es un egreso
+     * (una compra), avisa para que Nexorix pregunte por WhatsApp que se compro.
+     */
     @Transactional
     public Transaction createTransaction(
+            BigDecimal amount,
+            String type,
+            String description,
+            LocalDateTime transactionDate,
+            Long accountId,
+            String reference,
+            String username
+    ) {
+        Transaction transaction = create(amount, type, description, transactionDate, accountId, reference, username);
+
+        if (transaction.getType().equals("EGRESO")) {
+            Account account = transaction.getAccount();
+            events.publishEvent(new PurchaseRegisteredEvent(
+                    transaction.getId(), account.getUser().getId(), transaction.getAmount(),
+                    transaction.getDescription(), transaction.getTransactionDate()));
+        }
+        return transaction;
+    }
+
+    private Transaction create(
             BigDecimal amount,
             String type,
             String description,
@@ -139,12 +178,13 @@ public class TransactionService {
         String reference = "TRF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
         LocalDateTime now = LocalDateTime.now();
 
-        Transaction out = createTransaction(
+        // Las transferencias entre cuentas propias no son compras: no se pregunta nada.
+        Transaction out = create(
                 amount, "EGRESO",
                 note != null ? note : "Envío a " + to.getBank(),
                 now, fromAccountId, reference, username);
 
-        Transaction in = createTransaction(
+        Transaction in = create(
                 amount, "INGRESO",
                 note != null ? note : "Recibido de " + from.getBank(),
                 now, toAccountId, reference, username);

@@ -31,11 +31,11 @@ public final class CsvReportWriter {
     }
 
     /** 1234567.5 -> "1234567,50" (coma decimal, como Excel en Colombia). */
-    static String number(BigDecimal value) {
+    public static String number(BigDecimal value) {
         return value == null ? "" : value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString().replace('.', ',');
     }
 
-    static String cell(String value) {
+    public static String cell(String value) {
         if (value == null) return "";
         String text = value.replace("\r", " ").replace("\n", " ");
         if (!text.isEmpty() && "=+-@\t".indexOf(text.charAt(0)) >= 0) {

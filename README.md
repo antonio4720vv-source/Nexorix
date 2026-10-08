@@ -15,10 +15,11 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | Importación | Varios extractos PDF o CSV a la vez, en cola, con duplicados, clasificación y cuadre con los totales del banco |
 | IA (Gemini) | Lee PDF difíciles o escaneados, mejora la clasificación y el agente **Nexo** responde preguntas con herramientas |
 | Reportes | PDF para el contador y CSV para Excel, con la parte real y la parte interna de cada movimiento |
+| Compras por WhatsApp | Al registrar un gasto, Nexorix pregunta por WhatsApp **qué compraste**; respondes con una nota de voz y Gemini llena tu tabla personalizada |
 
 ## Páginas
 
-`/dashboard.html` panel · `/traza.html` Trace · `/importar.html` importar · `/reportes.html` reportes. El agente Nexo aparece como botón flotante en todas.
+`/dashboard.html` panel · `/traza.html` Trace · `/importar.html` importar · `/reportes.html` reportes · `/compras.html` compras por WhatsApp. El agente Nexo aparece como botón flotante en todas.
 
 ## API principal (nueva en esta versión)
 
@@ -30,6 +31,10 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | `GET /api/trace/history` · `GET /api/trace/overview` | Historial y conteos |
 | `POST /api/agent/chat` · `POST /api/agent/reset` | Agente Nexo |
 | `GET /api/reports/resumen.pdf` · `/movimientos.csv` · `/preview` | Reportes, con `?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` |
+| `GET/PUT/DELETE /api/compras/whatsapp` · `PUT /api/compras/whatsapp/activo` | Número de WhatsApp (verificación por código) y pausa |
+| `GET/POST /api/compras/columnas` · `PUT/DELETE /api/compras/columnas/{id}` | Columnas de la tabla personalizada |
+| `GET /api/compras` · `PUT/DELETE /api/compras/{id}` · `GET /api/compras/compras.csv` | Filas de la tabla, edición a mano y CSV |
+| `GET/POST /api/whatsapp/webhook` | Webhook de Meta (público, firmado con `X-Hub-Signature-256`) |
 
 Las rutas anteriores (`/api/trace/own-transfers`, `/confirm`, `/matches`, `/api/ai/ask`) siguen funcionando.
 
@@ -46,10 +51,27 @@ Las rutas anteriores (`/api/trace/own-transfers`, `/confirm`, `/matches`, `/api/
 | `NEXORIX_COOKIE_SECURE` | No | `true` en producción con HTTPS |
 | `NEXORIX_IP_LIMITS` | No | `false` solo para pruebas de carga |
 | `NEXORIX_MAIL_*`, `NEXORIX_RECOVERY_DOCUMENT_CHECK`, `NEXORIX_IMPORT_*` | No | Igual que antes |
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | No | Activan WhatsApp (Meta for Developers → WhatsApp → Configuración de la API) |
+| `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` | Con WhatsApp | Firma de los webhooks (Configuración → Básica) y token que inventas para registrar el webhook |
+| `WHATSAPP_TEMPLATE_NAME`, `WHATSAPP_TEMPLATE_LANGUAGE` | Recomendada | Plantilla aprobada para escribir primero (ver abajo). Idioma por defecto `es` |
+| `WHATSAPP_BUSINESS_PHONE` | No | Número de WhatsApp de Nexorix, para mostrar el enlace `wa.me` con el código |
 
 ## Agente Nexo
 
 Gemini con *function calling*. Herramientas de solo lectura sobre los datos de la persona: resumen financiero, cuentas, búsqueda de movimientos, gastos por categoría, resumen mensual, gastos recurrentes, sugerencias e historial de Trace. Las acciones (confirmar una transferencia, descargar un reporte) **solo se proponen como botones**: el agente nunca cambia datos. Límite: 30 mensajes por hora por persona, 6 pasos por mensaje, memoria de los últimos 8 turnos en la sesión.
+
+## Compras por WhatsApp
+
+1. La persona escribe su número en `/compras.html` y manda desde su WhatsApp el código `NEXORIX 123456` que ve en pantalla. Nexorix **solo escribe a números verificados**, así nadie puede poner el número de otro.
+2. Cada gasto (egreso) registrado a mano dispara la pregunta *"Registraste un gasto de $ 25.000 (Éxito). ¿Qué compraste?"*. Las transferencias entre cuentas propias y los extractos importados no preguntan nada. Máximo 20 preguntas al día por persona.
+3. La persona responde con una **nota de voz** (o con texto). Gemini la escucha, la transcribe y llena las columnas que ella eligió (por defecto: producto, cantidad, tienda, para quién, motivo; se pueden renombrar, borrar o agregar hasta 15). Nexorix le confirma por WhatsApp lo que guardó.
+4. Si responde citando la pregunta, la respuesta va a esa compra; si no, a la pregunta más reciente sin responder (de los últimos 7 días).
+
+**Configuración en Meta**
+
+- Webhook: `{NEXORIX_PUBLIC_URL}/api/whatsapp/webhook`, token de verificación = `WHATSAPP_VERIFY_TOKEN`, suscrito al campo `messages`.
+- Plantilla (categoría *Utility*), con dos variables: `Registraste un gasto de {{1}} ({{2}}). ¿Qué compraste? Respóndeme con una nota de voz 🎙️`. Pon su nombre en `WHATSAPP_TEMPLATE_NAME`. Sin plantilla, Nexorix manda texto libre, que WhatsApp solo entrega si la persona escribió en las últimas 24 horas (sirve para probar).
+- Sin `GEMINI_API_KEY` las notas de voz no se pueden entender; las respuestas de texto se guardan tal cual en la primera columna.
 
 ## Seguridad
 
@@ -68,4 +90,4 @@ Gemini con *function calling*. Herramientas de solo lectura sobre los datos de l
 
 ## Privacidad
 
-Los extractos no se guardan (solo su huella SHA-256 y los movimientos confirmados). Con la IA activa, los PDF difíciles y los datos que consulta el agente se envían a la API de Gemini. **En el nivel gratuito, Google puede usar ese contenido para mejorar sus productos**: para datos reales de usuarios usa el nivel pagado y descríbelo en la política de tratamiento de datos (Ley 1581 de 2012).
+Los extractos no se guardan (solo su huella SHA-256 y los movimientos confirmados). Las notas de voz tampoco: se descargan de Meta, se envían a Gemini para transcribirlas y solo queda el texto. Con la IA activa, los PDF difíciles y los datos que consulta el agente se envían a la API de Gemini. **En el nivel gratuito, Google puede usar ese contenido para mejorar sus productos**: para datos reales de usuarios usa el nivel pagado y descríbelo en la política de tratamiento de datos (Ley 1581 de 2012).

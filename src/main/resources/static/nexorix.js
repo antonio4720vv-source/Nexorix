@@ -68,7 +68,8 @@ const Nexorix = {
     /** Barra de navegacion comun: marca la pagina actual. */
     nav(active) {
         const links = [["dashboard", "/dashboard.html", "Panel"], ["traza", "/traza.html", "Trace"],
-            ["importar", "/importar.html", "Importar"], ["reportes", "/reportes.html", "Reportes"]];
+            ["importar", "/importar.html", "Importar"], ["reportes", "/reportes.html", "Reportes"],
+            ["compras", "/compras.html", "Compras"]];
         return '<nav class="main-nav" aria-label="Secciones">' + links.map(([id, href, label]) =>
             `<a href="${href}"${id === active ? ' aria-current="page"' : ""}>${label}</a>`).join("") + "</nav>";
     },
@@ -97,6 +98,8 @@ const Nexorix = {
             chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
             download: '<path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/>',
             chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+            mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+            trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
             send: '<path d="M4 12l16-8-6 16-2.5-6.5z"/>',
             undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
             split: '<path d="M4 12h6M10 12l8-6M10 12l8 6M18 6h2M18 18h2"/>',

@@ -119,6 +119,16 @@ public class GeminiClient {
         return part;
     }
 
+    /** Un audio (por ejemplo una nota de voz de WhatsApp): Gemini lo escucha y lo transcribe. */
+    public static Map<String, Object> audio(String mimeType, String base64) {
+        Map<String, Object> inline = new LinkedHashMap<>();
+        inline.put("mimeType", mimeType);
+        inline.put("data", base64);
+        Map<String, Object> part = new LinkedHashMap<>();
+        part.put("inlineData", inline);
+        return part;
+    }
+
     public static Map<String, Object> content(String role, List<?> parts) {
         Map<String, Object> content = new LinkedHashMap<>();
         content.put("role", role);
