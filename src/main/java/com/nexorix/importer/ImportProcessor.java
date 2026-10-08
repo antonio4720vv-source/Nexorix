@@ -37,6 +37,7 @@ public class ImportProcessor {
     private final AiStatementReader aiReader;
     private final AiClassifier aiClassifier;
     private final TransactionTemplate tx;
+    private final ImportAudit audit;
     private final CsvStatementParser csvParser = new CsvStatementParser();
     private final PdfStatementParser pdfParser = new PdfStatementParser();
 
@@ -46,7 +47,8 @@ public class ImportProcessor {
             ImportService importService,
             AiStatementReader aiReader,
             AiClassifier aiClassifier,
-            TransactionTemplate tx
+            TransactionTemplate tx,
+            ImportAudit audit
     ) {
         this.batchRepository = batchRepository;
         this.rowRepository = rowRepository;
@@ -54,6 +56,7 @@ public class ImportProcessor {
         this.aiReader = aiReader;
         this.aiClassifier = aiClassifier;
         this.tx = tx;
+        this.audit = audit;
     }
 
     /** Resultado de leer el archivo, antes de guardarlo. */
@@ -71,6 +74,7 @@ public class ImportProcessor {
                     return batch.getStatus();
                 }
                 batch.markProcessing();
+                audit.recordAfterCommit(batch, ImportAudit.PROCESSING, "Empezó la lectura");
                 return ImportBatch.PROCESSING;
             }).orElse("MISSING"));
 
@@ -78,6 +82,7 @@ public class ImportProcessor {
                 return; // cancelado o borrado mientras esperaba
             }
 
+            long started = System.nanoTime();
             byte[] bytes = Files.readAllBytes(file);
             Analysis analysis = analyze(format, bytes, password);
             Map<Integer, String> aiCategories = classifyWithAi(analysis.movements());
@@ -87,10 +92,12 @@ public class ImportProcessor {
                 List<ImportRow> rows = importService.buildRows(batch, batch.getAccount(), analysis.movements());
 
                 // La IA solo mejora la categoria de lo que quedo en "Otros".
+                int recategorized = 0;
                 for (int i = 0; i < rows.size(); i++) {
                     String better = aiCategories.get(i);
                     if (better != null && !ImportRow.INVALID.equals(rows.get(i).getStatus())) {
                         rows.get(i).setCategory(better);
+                        recategorized++;
                     }
                 }
 
@@ -106,6 +113,16 @@ public class ImportProcessor {
                 rowRepository.saveAll(rows);
                 batch.markPreview(rows.size(), news, duplicates, invalid, analysis.aiUsed(), analysis.checkMessage());
                 batchRepository.save(batch);
+
+                String method = "CSV".equals(format) ? "CSV" : analysis.aiUsed() ? "PDF leído con IA" : "PDF leído con reglas";
+                audit.recordAfterCommit(batch, ImportAudit.READ, method + " · " + rows.size() + " movimientos ("
+                        + news + " nuevos, " + duplicates + " repetidos, " + invalid + " con problemas)"
+                        + (analysis.checkMessage() == null ? "" : " · " + analysis.checkMessage())
+                        + " · " + String.format(Locale.ROOT, "%.1f", (System.nanoTime() - started) / 1e9) + " s");
+                if (recategorized > 0) {
+                    audit.recordAfterCommit(batch, ImportAudit.AI_CATEGORIES,
+                            "La IA mejoró la categoría de " + recategorized + " movimientos");
+                }
             });
 
             log.info("Archivo {} listo para revisar (IA: {})", batchId, analysis.aiUsed());
@@ -128,6 +145,7 @@ public class ImportProcessor {
         tx.executeWithoutResult(s -> batchRepository.findById(batchId).ifPresent(batch -> {
             batch.fail(message);
             batchRepository.save(batch);
+            audit.recordAfterCommit(batch, ImportAudit.FAILED, message);
         }));
     }
 

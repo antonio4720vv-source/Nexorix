@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Dividir gastos</title>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-left">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark"></span>Nexorix</a>
+        <span id="navSlot" data-active="dividir"></span>
+    </div>
+    <div class="who">
+        <span class="who-name" id="welcome"></span>
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <button class="button secondary small" id="logoutButton" type="button">Salir</button>
+    </div>
+</header>
+
+<main class="page" style="max-width:980px">
+    <div class="page-head">
+        <div>
+            <h1>Dividir gastos</h1>
+            <p>Pagaste una cuenta entre varios: elige a tus amigos, Nexorix la divide en <strong>partes iguales</strong>
+               y le genera a cada uno su cobro para que te reembolse.</p>
+        </div>
+    </div>
+
+    <!-- 1. Nueva cuenta -->
+    <section class="panel stack">
+        <div class="panel-head"><h2>Nueva cuenta</h2></div>
+        <div class="row">
+            <div class="field"><label for="title">¿Qué pagaste? (opcional)</label>
+                <input id="title" maxlength="100" placeholder="Cena en Andrés, Airbnb, mercado..."></div>
+            <div class="field"><label for="total">Monto total que pagaste</label>
+                <input id="total" inputmode="numeric" placeholder="$ 0" autocomplete="off">
+                <small class="muted" id="totalPreview"></small></div>
+        </div>
+
+        <div class="field">
+            <label for="filter">¿Con quién la dividimos? Busca a tus amigos por usuario</label>
+            <input id="filter" type="search" placeholder="Escribe parte del usuario..." autocomplete="off">
+        </div>
+        <div class="friend-pick" id="pick" role="group" aria-label="Amigos"></div>
+
+        <div class="split-summary" id="summary" hidden></div>
+        <button class="button full" id="createSplit" type="button" disabled>Dividir y generar cobros</button>
+        <p class="notice" id="splitMessage" role="status" aria-live="polite"></p>
+        <p class="muted" style="font-size:.8rem;margin:0">Nexorix no mueve dinero: tus amigos te pagan por Nequi, transferencia
+           o efectivo, y aquí llevas la cuenta de quién ya te pagó. Si la plata no se puede dividir exacto,
+           los centavos sobrantes los asumes tú.</p>
+    </section>
+
+    <!-- 2. Me deben -->
+    <section class="panel stack">
+        <div class="panel-head"><h2>Me deben</h2><span class="muted" id="owedTotal" style="font-size:.85rem"></span></div>
+        <div id="owedToMe"><p class="empty">Todavía no has dividido ninguna cuenta.</p></div>
+    </section>
+
+    <!-- 3. Yo debo -->
+    <section class="panel stack">
+        <div class="panel-head"><h2>Yo debo</h2><span class="muted" id="oweTotal" style="font-size:.85rem"></span></div>
+        <div id="iOwe"><p class="empty">No le debes plata a nadie.</p></div>
+    </section>
+
+    <!-- 4. Amigos -->
+    <section class="panel stack">
+        <div class="panel-head"><h2>Mis amigos</h2></div>
+        <div class="field">
+            <label for="find">Agregar a alguien por su usuario</label>
+            <input id="find" type="search" placeholder="Mínimo 3 letras del usuario" autocomplete="off" maxlength="50">
+        </div>
+        <div id="found"></div>
+        <div id="requests"></div>
+        <div id="friendList"></div>
+        <p class="notice" id="friendMessage" role="status" aria-live="polite"></p>
+    </section>
+</main>
+
+<script src="/nexorix.js"></script>
+<script src="/agente.js"></script>
+<script>
+    const $ = (id) => document.getElementById(id);
+    const esc = Nexorix.esc;
+    const money = Nexorix.money;
+
+    let friends = [];
+    const chosen = new Set();
+
+    async function api(path, options) {
+        const result = await Nexorix.api(path, options);
+        if (result.status === 401) {
+            window.location.href = "/login.html?expirada=1";
+            throw new Error("Sesion vencida");
+        }
+        return result;
+    }
+
+    async function header() {
+        const slot = $("navSlot");
+        slot.outerHTML = Nexorix.nav(slot.dataset.active);
+        const me = await api("/api/users/me");
+        if (me.ok && me.data) {
+            $("welcome").textContent = me.data.name;
+            $("avatar").textContent = Nexorix.initials(me.data.name);
+        }
+        $("logoutButton").addEventListener("click", async () => {
+            try { await Nexorix.api("/api/users/logout", { method: "POST" }); }
+            finally { window.location.href = "/login.html"; }
+        });
+    }
+
+    // ---------------- Nueva cuenta ----------------
+
+    Nexorix.moneyInput($("total"), $("totalPreview"));
+
+    function pickList() {
+        const q = $("filter").value.trim().toLowerCase().replace(/^@/, "");
+        const list = friends.filter(f => !q || f.username.toLowerCase().includes(q));
+        if (!friends.length) {
+            $("pick").innerHTML = '<p class="empty">Aún no tienes amigos. Agrégalos abajo, en «Mis amigos»: ellos deben aceptar tu solicitud.</p>';
+        } else if (!list.length) {
+            $("pick").innerHTML = '<p class="empty">Ningún amigo coincide con «' + esc(q) + '».</p>';
+        } else {
+            $("pick").innerHTML = list.map(f => `
+                <label class="friend-row">
+                    <input type="checkbox" value="${esc(f.username)}" ${chosen.has(f.username) ? "checked" : ""}>
+                    <span class="avatar sm" aria-hidden="true">${esc(Nexorix.initials(f.name))}</span>
+                    <span><strong>${esc(f.name)}</strong><small class="muted"> @${esc(f.username)}</small></span>
+                </label>`).join("");
+            $("pick").querySelectorAll("input").forEach(i => i.addEventListener("change", () => {
+                i.checked ? chosen.add(i.value) : chosen.delete(i.value);
+                summary();
+            }));
+        }
+        summary();
+    }
+
+    /** Igual que el servidor: los amigos pagan lo mismo; el pagador asume los centavos sobrantes. */
+    function divide(total, k) {
+        const cents = Math.round(total * 100);
+        const each = Math.floor(cents / (k + 1));
+        return { each: each / 100, payer: (cents - each * k) / 100 };
+    }
+
+    function summary() {
+        const total = Nexorix.parseMoney($("total").value);
+        const k = chosen.size;
+        const ready = !isNaN(total) && total > 0 && k > 0;
+        $("createSplit").disabled = !ready;
+        $("summary").hidden = !ready;
+        if (!ready) return;
+        const s = divide(total, k);
+        $("summary").innerHTML = `<strong>${k + 1} personas</strong> (tú y ${k} ${k === 1 ? "amigo" : "amigos"}):
+            cada amigo te paga <strong>${money(s.each)}</strong> y tu parte es <strong>${money(s.payer)}</strong>.
+            Recibirás <strong>${money(total - s.payer)}</strong>.`;
+    }
+
+    $("total").addEventListener("input", summary);
+    $("filter").addEventListener("input", pickList);
+
+    $("createSplit").addEventListener("click", async () => {
+        $("createSplit").disabled = true;
+        const result = await api("/api/split", { method: "POST", json: {
+            title: $("title").value, total: Nexorix.parseMoney($("total").value), participants: [...chosen] } });
+        if (!result.ok) {
+            Nexorix.say($("splitMessage"), Nexorix.errorOf(result, "No fue posible dividir la cuenta."), "error");
+            summary();
+            return;
+        }
+        Nexorix.say($("splitMessage"), "Listo: generamos un cobro para cada amigo. Compártelo desde «Me deben».", "ok");
+        $("title").value = ""; $("total").value = ""; $("totalPreview").textContent = "";
+        chosen.clear();
+        pickList();
+        await loadSplits();
+    });
+
+    // ---------------- Me deben / Yo debo ----------------
+
+    const STATUS = {
+        PENDIENTE: '<span class="pill wait">Pendiente</span>',
+        REPORTADO: '<span class="pill warn">Dice que ya pagó</span>',
+        SALDADO: '<span class="pill ok">Pagado</span>'
+    };
+
+    function waLink(share, title) {
+        const text = `Hola ${share.name.split(" ")[0]}, te cobro ${money(share.amount)} por «${title}». Míralo en Nexorix: ${share.link}`;
+        return "https://wa.me/?text=" + encodeURIComponent(text);
+    }
+
+    function renderOwed(list) {
+        const open = list.filter(e => e.status === "ABIERTA");
+        const pending = open.reduce((sum, e) => sum + Number(e.pending), 0);
+        $("owedTotal").textContent = pending ? "Te deben " + money(pending) : "";
+        if (!list.length) {
+            $("owedToMe").innerHTML = '<p class="empty">Todavía no has dividido ninguna cuenta.</p>';
+            return;
+        }
+        $("owedToMe").innerHTML = list.map(e => `
+            <article class="split-card ${e.status === "CANCELADA" ? "cancelled" : ""}">
+                <div class="split-head">
+                    <div><strong>${esc(e.title)}</strong>
+                        <small class="muted"> · pagaste ${money(e.total)} · tu parte ${money(e.payerShare)}</small></div>
+                    ${e.status === "CANCELADA" ? '<span class="pill bad">Cancelada</span>'
+                        : `<button class="button secondary small" data-cancel="${e.id}" type="button">Cancelar cuenta</button>`}
+                </div>
+                ${e.shares.map(s => `
+                    <div class="share-row">
+                        <span><strong>${esc(s.name)}</strong> <small class="muted">@${esc(s.username)}</small></span>
+                        <span class="amt">${money(s.amount)}</span>
+                        ${STATUS[s.status] || esc(s.status)}
+                        ${e.status === "CANCELADA" || s.status === "SALDADO" ? "" : `
+                        <span class="share-actions">
+                            <button class="button secondary small" data-copy="${esc(s.link)}" type="button">Copiar enlace</button>
+                            <a class="button secondary small" target="_blank" rel="noopener" href="${esc(waLink(s, e.title))}">WhatsApp</a>
+                            <button class="button small" data-settle="${s.id}" type="button">Ya me pagó</button>
+                        </span>`}
+                    </div>`).join("")}
+            </article>`).join("");
+
+        $("owedToMe").querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", async () => {
+            try { await navigator.clipboard.writeText(b.dataset.copy); Nexorix.toast("Enlace copiado"); }
+            catch (e) { window.prompt("Copia este enlace de cobro:", b.dataset.copy); }
+        }));
+        $("owedToMe").querySelectorAll("[data-settle]").forEach(b => b.addEventListener("click", async () => {
+            const r = await api("/api/split/shares/" + b.dataset.settle + "/settle", { method: "POST" });
+            if (!r.ok) return Nexorix.toast(Nexorix.errorOf(r, "No fue posible marcarlo."), "error");
+            Nexorix.toast("Marcado como pagado");
+            loadSplits();
+        }));
+        $("owedToMe").querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", async () => {
+            if (!confirm("¿Cancelar esta cuenta? Tus amigos dejarán de ver el cobro.")) return;
+            const r = await api("/api/split/" + b.dataset.cancel, { method: "DELETE" });
+            if (!r.ok) return Nexorix.toast(Nexorix.errorOf(r, "No fue posible cancelarla."), "error");
+            loadSplits();
+        }));
+    }
+
+    function renderOwe(list) {
+        const pending = list.filter(d => d.status !== "SALDADO").reduce((sum, d) => sum + Number(d.amount), 0);
+        $("oweTotal").textContent = pending ? "Debes " + money(pending) : "";
+        if (!list.length) {
+            $("iOwe").innerHTML = '<p class="empty">No le debes plata a nadie.</p>';
+            return;
+        }
+        $("iOwe").innerHTML = list.map(d => `
+            <div class="share-row">
+                <span><strong>${esc(d.title)}</strong> <small class="muted">a ${esc(d.payerName)} (@${esc(d.payerUsername)})</small></span>
+                <span class="amt">${money(d.amount)}</span>
+                ${STATUS[d.status] || esc(d.status)}
+                <span class="share-actions">
+                    <a class="button secondary small" href="${esc(d.link)}">Ver cobro</a>
+                    ${d.status === "PENDIENTE" ? `<button class="button small" data-paid="${esc(d.link.split("t=")[1] || "")}" type="button">Ya pagué</button>` : ""}
+                </span>
+            </div>`).join("");
+        $("iOwe").querySelectorAll("[data-paid]").forEach(b => b.addEventListener("click", async () => {
+            const r = await api("/api/split/collect/" + encodeURIComponent(b.dataset.paid) + "/paid", { method: "POST" });
+            if (!r.ok) return Nexorix.toast(Nexorix.errorOf(r, "No fue posible avisar."), "error");
+            Nexorix.toast("Avisamos que ya pagaste");
+            loadSplits();
+        }));
+    }
+
+    async function loadSplits() {
+        const r = await api("/api/split");
+        if (!r.ok) return;
+        renderOwed(r.data.owedToMe);
+        renderOwe(r.data.iOwe);
+    }
+
+    // ---------------- Amigos ----------------
+
+    function person(p, actions) {
+        return `<div class="share-row"><span><strong>${esc(p.name)}</strong> <small class="muted">@${esc(p.username)}</small></span>
+            <span></span><span></span><span class="share-actions">${actions}</span></div>`;
+    }
+
+    function renderFriends(data) {
+        friends = data.friends;
+        for (const u of [...chosen]) if (!friends.some(f => f.username === u)) chosen.delete(u);
+        pickList();
+
+        $("requests").innerHTML = (data.incoming.length ? "<h3>Solicitudes recibidas</h3>" + data.incoming.map(p => person(p,
+            `<button class="button small" data-accept="${esc(p.username)}" type="button">Aceptar</button>
+             <button class="button secondary small" data-remove="${esc(p.username)}" type="button">Rechazar</button>`)).join("") : "")
+            + (data.outgoing.length ? "<h3>Solicitudes enviadas</h3>" + data.outgoing.map(p => person(p,
+            `<span class="pill wait">Esperando</span>
+             <button class="button secondary small" data-remove="${esc(p.username)}" type="button">Cancelar</button>`)).join("") : "");
+
+        $("friendList").innerHTML = data.friends.length
+            ? "<h3>Amigos</h3>" + data.friends.map(p => person(p,
+                `<button class="button secondary small" data-remove="${esc(p.username)}" data-confirm="1" type="button">Quitar</button>`)).join("")
+            : "";
+
+        document.querySelectorAll("[data-accept]").forEach(b => b.addEventListener("click", () => friendAction(
+            "/api/friends/requests/" + encodeURIComponent(b.dataset.accept) + "/accept", "POST")));
+        document.querySelectorAll("[data-remove]").forEach(b => b.addEventListener("click", () => {
+            if (b.dataset.confirm && !confirm("¿Quitar a @" + b.dataset.remove + " de tus amigos?")) return;
+            friendAction("/api/friends/" + encodeURIComponent(b.dataset.remove), "DELETE");
+        }));
+    }
+
+    async function friendAction(path, method, json) {
+        const r = await api(path, { method, json });
+        if (!r.ok) return Nexorix.say($("friendMessage"), Nexorix.errorOf(r, "No fue posible completar la acción."), "error");
+        Nexorix.say($("friendMessage"), "", "");
+        renderFriends(r.data);
+        searchPeople();
+    }
+
+    let findTimer;
+    function searchPeople() {
+        clearTimeout(findTimer);
+        findTimer = setTimeout(async () => {
+            const q = $("find").value.trim();
+            if (q.replace(/^@/, "").length < 3) { $("found").innerHTML = ""; return; }
+            const r = await api("/api/friends/search?q=" + encodeURIComponent(q));
+            if (!r.ok) {
+                $("found").innerHTML = `<p class="notice error">${esc(Nexorix.errorOf(r, "No fue posible buscar."))}</p>`;
+                return;
+            }
+            const RELATION = {
+                FRIEND: '<span class="pill ok">Ya son amigos</span>',
+                REQUESTED: '<span class="pill wait">Solicitud enviada</span>',
+                NONE: null, INCOMING: null
+            };
+            $("found").innerHTML = r.data.length ? r.data.map(p => person(p, RELATION[p.relation]
+                || `<button class="button small" data-add="${esc(p.username)}" type="button">${p.relation === "INCOMING" ? "Aceptar solicitud" : "Agregar"}</button>`)).join("")
+                : '<p class="empty">No encontramos a nadie con ese usuario.</p>';
+            $("found").querySelectorAll("[data-add]").forEach(b => b.addEventListener("click", () =>
+                friendAction("/api/friends/requests", "POST", { username: b.dataset.add })));
+        }, 350);
+    }
+    $("find").addEventListener("input", searchPeople);
+
+    (async () => {
+        try {
+            await header();
+            const [f] = await Promise.all([api("/api/friends"), loadSplits()]);
+            if (f.ok) renderFriends(f.data);
+        } catch (e) { if (e.message !== "Sesion vencida") console.error(e); }
+    })();
+</script>
+</body>
+</html>

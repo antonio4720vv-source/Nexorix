@@ -14,6 +14,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPublicId(String publicId);
 
+    /** Buscador de amigos: usuarios activos cuyo nombre de usuario contiene el texto. */
+    java.util.List<User> findTop10ByUsernameContainingIgnoreCaseAndActiveTrueOrderByUsernameAsc(String text);
+
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);

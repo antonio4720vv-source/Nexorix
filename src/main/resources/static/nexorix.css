@@ -1794,3 +1794,68 @@ body.privacy .nexo .amt, body.privacy .trace-card .amt { filter: blur(7px); }
 @media (max-width: 640px) {
     .column-item { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   Contador: historial de auditoria
+   ============================================================ */
+
+.audit-list { display: grid; gap: 10px; }
+
+.audit-file { border: 1px solid var(--line); border-radius: var(--radius-m); padding: 12px 14px; background: var(--surface); }
+
+.audit-file summary { cursor: pointer; display: flex; gap: 10px; align-items: center; justify-content: space-between; list-style: none; }
+
+.audit-file summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+.audit-hash { margin: 10px 0 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .72rem;
+    color: var(--muted); word-break: break-all; }
+
+.audit-steps { list-style: none; margin: 12px 0 0; padding: 0 0 0 12px; border-left: 2px solid var(--line); display: grid; gap: 10px; }
+
+.audit-steps li { display: grid; grid-template-columns: auto auto 1fr; gap: 4px 10px; align-items: baseline; }
+
+.audit-time { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+
+.audit-detail { font-size: .85rem; color: var(--ink-soft); min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 640px) {
+    .audit-steps li { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   Dividir gastos
+   ============================================================ */
+
+.friend-pick { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
+
+.friend-row { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: var(--radius-s); cursor: pointer; background: var(--surface); }
+
+.friend-row:has(input:checked) { border-color: var(--real); background: #e9f7f4; }
+
+.avatar.sm { width: 28px; height: 28px; font-size: .7rem; flex: none; }
+
+.split-summary { padding: 12px 14px; border-radius: var(--radius-m); background: var(--paper); font-size: .92rem; }
+
+.split-card { border: 1px solid var(--line); border-radius: var(--radius-m); padding: 12px 14px; background: var(--surface);
+    margin-bottom: 12px; }
+
+.split-card.cancelled { opacity: .6; }
+
+.split-head { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+
+.share-row { display: grid; grid-template-columns: minmax(150px, 1fr) auto auto auto; gap: 8px 14px; align-items: center;
+    padding: 8px 0; border-top: 1px solid var(--line); }
+
+.share-row:first-of-type { border-top: 0; }
+
+.share-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+.share-row .amt { font-weight: 800; white-space: nowrap; }
+
+@media (max-width: 700px) {
+    .share-row { grid-template-columns: 1fr auto; }
+    .share-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+#requests h3, #friendList h3 { margin: 18px 0 4px; font-size: .9rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }

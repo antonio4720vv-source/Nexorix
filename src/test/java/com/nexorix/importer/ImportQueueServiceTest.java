@@ -25,7 +25,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ImportQueueServiceTest {
@@ -60,6 +63,8 @@ class ImportQueueServiceTest {
         service = build(executor);
     }
 
+    private final ImportAudit audit = mock(ImportAudit.class);
+
     private ImportQueueService build(TaskExecutor exec) throws Exception {
         UserRepository users = mock(UserRepository.class);
         AccountRepository accounts = mock(AccountRepository.class);
@@ -70,7 +75,7 @@ class ImportQueueServiceTest {
         when(users.findByUsername("ana")).thenReturn(Optional.of(ana));
         when(accounts.findById(6L)).thenReturn(Optional.of(nequi));
         return new ImportQueueService(batchRepository, mock(ImportRowRepository.class), users, accounts,
-                mock(ImportProcessor.class), exec, new TransactionTemplate(mock(PlatformTransactionManager.class)),
+                mock(ImportProcessor.class), exec, new TransactionTemplate(mock(PlatformTransactionManager.class)), audit,
                 10, 20);
     }
 
@@ -135,5 +140,30 @@ class ImportQueueServiceTest {
 
         assertThat(result.get(0).status()).isEqualTo(ImportBatch.FAILED);
         assertThat(result.get(0).errorMessage()).contains("Intenta en un minuto");
+    }
+
+    @Test
+    void cadaArchivoDejaHuellaDeQueSeRecibioYQuedoEnCola() {
+        service.enqueue("ana", 6L, List.of(csv("a.csv", "1")), "secreta");
+
+        verify(audit).recordAfterCommit(any(ImportBatch.class), eq(ImportAudit.RECEIVED),
+                org.mockito.ArgumentMatchers.argThat(d -> d.contains("CSV") && d.contains("con contraseña")
+                        && !d.contains("secreta")));
+        verify(audit).recordAfterCommit(any(ImportBatch.class), eq(ImportAudit.QUEUED), anyString());
+    }
+
+    @Test
+    void unArchivoRechazadoTambienQuedaRegistradoConSuHuella() {
+        service.enqueue("ana", 6L, List.of(csv("a.csv", "1"), csv("copia.csv", "1")), null);
+
+        verify(audit).record(eq(1L), eq(6L), isNull(), eq("copia.csv"),
+                org.mockito.ArgumentMatchers.matches("[0-9a-f]{64}"), eq(ImportAudit.REJECTED),
+                org.mockito.ArgumentMatchers.contains("repetido"));
+    }
+
+    @Test
+    void describeElTamano() {
+        assertThat(ImportQueueService.describeSize(500)).isEqualTo("500 B");
+        assertThat(ImportQueueService.describeSize(2048)).isEqualTo("2 KB");
     }
 }

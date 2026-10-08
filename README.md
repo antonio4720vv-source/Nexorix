@@ -12,14 +12,15 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | Cuentas y movimientos | Cuentas, ingresos, egresos y transferencias entre cuentas propias |
 | Trace V2 | Detecta transferencias entre cuentas propias 1→1, 1→N, N→1, con comisiones; confirmar, deshacer e historial |
 | Dinero real | Ingresos y gastos reales, sin transferencias internas; las comisiones sí cuentan como gasto |
-| Importación | Varios extractos PDF o CSV a la vez, en cola, con duplicados, clasificación y cuadre con los totales del banco |
+| Contador | Antes «Importación»: varios extractos PDF o CSV a la vez, en cola, con duplicados, clasificación y cuadre con los totales del banco, más un **historial de auditoría** de cada archivo |
+| Dividir gastos | Amigos por nombre de usuario, división en partes iguales y enlace de cobro para que cada amigo reembolse al pagador |
 | IA (Gemini) | Lee PDF difíciles o escaneados, mejora la clasificación y el agente **Nexo** responde preguntas con herramientas |
 | Reportes | PDF para el contador y CSV para Excel, con la parte real y la parte interna de cada movimiento |
 | Compras por WhatsApp | Al registrar un gasto, Nexorix pregunta por WhatsApp **qué compraste**; respondes con una nota de voz y Gemini llena tu tabla personalizada |
 
 ## Páginas
 
-`/dashboard.html` panel · `/traza.html` Trace · `/importar.html` importar · `/reportes.html` reportes · `/compras.html` compras por WhatsApp. El agente Nexo aparece como botón flotante en todas.
+`/dashboard.html` panel · `/traza.html` Trace · `/contador.html` contador (antes `/importar.html`, que redirige) · `/dividir.html` dividir gastos · `/cobro.html?t=…` cobro · `/reportes.html` reportes · `/compras.html` compras por WhatsApp. El agente Nexo aparece como botón flotante en todas.
 
 ## API principal (nueva en esta versión)
 
@@ -35,6 +36,10 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | `GET/POST /api/compras/columnas` · `PUT/DELETE /api/compras/columnas/{id}` | Columnas de la tabla personalizada |
 | `GET /api/compras` · `PUT/DELETE /api/compras/{id}` · `GET /api/compras/compras.csv` | Filas de la tabla, edición a mano y CSV |
 | `GET/POST /api/whatsapp/webhook` | Webhook de Meta (público, firmado con `X-Hub-Signature-256`) |
+| `GET /api/imports/audit` · `?archivo=ID` · `GET /api/imports/audit.csv` | Historial de auditoría del Contador (JSON y CSV) |
+| `GET /api/friends` · `GET /api/friends/search?q=` · `POST /api/friends/requests` · `POST /api/friends/requests/{usuario}/accept` · `DELETE /api/friends/{usuario}` | Amigos |
+| `GET/POST /api/split` · `DELETE /api/split/{id}` · `POST /api/split/shares/{id}/settle` | Cuentas compartidas y cobros |
+| `GET /api/split/collect/{token}` · `POST /api/split/collect/{token}/paid` | Enlace de cobro y «ya pagué» |
 
 Las rutas anteriores (`/api/trace/own-transfers`, `/confirm`, `/matches`, `/api/ai/ask`) siguen funcionando.
 
@@ -59,6 +64,22 @@ Las rutas anteriores (`/api/trace/own-transfers`, `/confirm`, `/matches`, `/api/
 ## Agente Nexo
 
 Gemini con *function calling*. Herramientas de solo lectura sobre los datos de la persona: resumen financiero, cuentas, búsqueda de movimientos, gastos por categoría, resumen mensual, gastos recurrentes, sugerencias e historial de Trace. Las acciones (confirmar una transferencia, descargar un reporte) **solo se proponen como botones**: el agente nunca cambia datos. Límite: 30 mensajes por hora por persona, 6 pasos por mensaje, memoria de los últimos 8 turnos en la sesión.
+
+## Contador: trazabilidad
+
+Cada archivo que se sube deja una cadena de eventos en `import_audit_log`, con el nombre y la huella SHA-256 del archivo: `RECIBIDO` (formato, tamaño, cuenta) → `EN_COLA` → `PROCESANDO` → `LEIDO` (método reglas/IA, movimientos nuevos/repetidos/con problemas, si cuadra con el banco, segundos) → `CATEGORIAS_IA` → `CONFIRMADO` (cuántos movimientos y sus ids) o `CANCELADO` / `DESCARTADO` (vista previa borrada a las 24 h) / `ERROR` / `RECHAZADO` (repetido, formato no válido, cola llena).
+
+- Es **solo de escritura** y sobrevive a la limpieza horaria de lotes (no depende de ellos).
+- Cada evento se guarda en su propia transacción y `CONFIRMADO` solo después de que la confirmación se grabó: si se deshace, no queda registrado.
+- Nunca guarda el contenido del archivo, la contraseña del PDF ni descripciones de movimientos.
+- Cada persona solo ve el suyo (pestaña Contador o `GET /api/imports/audit.csv`).
+
+## Dividir gastos
+
+1. Los amigos se buscan por nombre de usuario (mínimo 3 letras, con límite de búsquedas; solo se muestra usuario y nombre). La amistad **requiere aceptación**: nadie puede cobrarle a quien no lo aceptó.
+2. El pagador escribe el total y elige amigos. El total se divide en partes iguales entre el pagador y los amigos, calculado en centavos: los amigos pagan todos lo mismo y el pagador absorbe los centavos sobrantes (`amigos × parte + parte del pagador = total`, siempre).
+3. Cada amigo recibe un cobro (en su pestaña «Yo debo» y con un enlace `/cobro.html?t=…` que el pagador copia o manda por WhatsApp). El enlace tiene un token aleatorio **y** exige sesión: solo lo abren el pagador y quien debe.
+4. Estados: `PENDIENTE` → el amigo pulsa «Ya pagué» → `REPORTADO` → el pagador confirma «Ya me pagó» → `SALDADO`. Nexorix no mueve dinero: el reembolso se hace por fuera y aquí se lleva la cuenta.
 
 ## Compras por WhatsApp
 

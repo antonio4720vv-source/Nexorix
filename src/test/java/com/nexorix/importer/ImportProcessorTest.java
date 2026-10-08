@@ -36,7 +36,7 @@ class ImportProcessorTest {
         aiReader = mock(AiStatementReader.class);
         processor = new ImportProcessor(mock(ImportBatchRepository.class), mock(ImportRowRepository.class),
                 mock(ImportService.class), aiReader, mock(AiClassifier.class),
-                new TransactionTemplate(mock(PlatformTransactionManager.class)));
+                new TransactionTemplate(mock(PlatformTransactionManager.class)), mock(ImportAudit.class));
     }
 
     /** Crea un PDF real (con texto) para las pruebas. */

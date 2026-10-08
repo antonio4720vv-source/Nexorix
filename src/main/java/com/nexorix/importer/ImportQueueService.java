@@ -57,6 +57,7 @@ public class ImportQueueService {
     private final ImportProcessor processor;
     private final TaskExecutor executor;
     private final TransactionTemplate tx;
+    private final ImportAudit audit;
     private final int maxFilesPerUpload;
     private final int maxActivePerUser;
     private final Path tempDir;
@@ -69,6 +70,7 @@ public class ImportQueueService {
             ImportProcessor processor,
             @Qualifier("importExecutor") TaskExecutor executor,
             TransactionTemplate tx,
+            ImportAudit audit,
             @Value("${nexorix.import.max-files-per-upload:10}") int maxFilesPerUpload,
             @Value("${nexorix.import.max-active-per-user:20}") int maxActivePerUser
     ) throws IOException {
@@ -79,6 +81,7 @@ public class ImportQueueService {
         this.processor = processor;
         this.executor = executor;
         this.tx = tx;
+        this.audit = audit;
         this.maxFilesPerUpload = maxFilesPerUpload;
         this.maxActivePerUser = maxActivePerUser;
         this.tempDir = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"), "nexorix-imports"));
@@ -119,6 +122,8 @@ public class ImportQueueService {
             try {
                 results.add(enqueueOne(user, account, name, file.bytes(), password, seen));
             } catch (ImportException exception) {
+                audit.record(user.getId(), account.getId(), null, name, hashOrNull(file.bytes()),
+                        ImportAudit.REJECTED, exception.getMessage());
                 results.add(ImportStatus.rejected(name, exception.getMessage()));
             }
         }
@@ -158,7 +163,12 @@ public class ImportQueueService {
         ImportBatch batch = tx.execute(s -> {
             ImportBatch created = new ImportBatch(user, account, name, hash, format);
             created.markQueued();
-            return batchRepository.save(created);
+            ImportBatch saved = batchRepository.save(created);
+            audit.recordAfterCommit(saved, ImportAudit.RECEIVED,
+                    format + " · " + describeSize(bytes.length) + " · cuenta " + account.getName()
+                            + (password == null || password.isBlank() ? "" : " · con contraseña"));
+            audit.recordAfterCommit(saved, ImportAudit.QUEUED, "Esperando su turno para leerse");
+            return saved;
         });
 
         Long id = batch.getId();
@@ -170,6 +180,7 @@ public class ImportQueueService {
             tx.executeWithoutResult(s -> batchRepository.findById(id).ifPresent(b -> {
                 b.fail("Hay muchos archivos en cola en este momento. Intenta en un minuto.");
                 batchRepository.save(b);
+                audit.recordAfterCommit(b, ImportAudit.FAILED, "Cola de lectura llena: archivo rechazado");
             }));
             return ImportStatus.rejected(name, "Hay muchos archivos en cola en este momento. Intenta en un minuto.");
         }
@@ -200,7 +211,10 @@ public class ImportQueueService {
     public void recoverInterrupted() {
         tx.executeWithoutResult(s -> {
             List<ImportBatch> stuck = batchRepository.findByStatusIn(ACTIVE);
-            stuck.forEach(b -> b.fail("El servidor se reinició mientras se leía este archivo. Súbelo de nuevo."));
+            stuck.forEach(b -> {
+                b.fail("El servidor se reinició mientras se leía este archivo. Súbelo de nuevo.");
+                audit.recordAfterCommit(b, ImportAudit.FAILED, "El servidor se reinició mientras se leía el archivo");
+            });
             batchRepository.saveAll(stuck);
             if (!stuck.isEmpty()) {
                 log.info("{} archivos interrumpidos marcados para volver a subir", stuck.size());
@@ -216,6 +230,8 @@ public class ImportQueueService {
             List<ImportBatch> old = batchRepository.findByStatusInAndCreatedAtBefore(
                     List.of(ImportBatch.PREVIEW, ImportBatch.FAILED, ImportBatch.CANCELLED), limit);
             for (ImportBatch batch : old) {
+                audit.recordAfterCommit(batch, ImportAudit.EXPIRED,
+                        "Vista previa borrada a las 24 h sin confirmar (estado: " + batch.getStatus() + ")");
                 rowRepository.deleteByBatchId(batch.getId());
             }
             batchRepository.deleteAll(old);
@@ -236,6 +252,14 @@ public class ImportQueueService {
         } catch (IOException ignored) {
             // nada que limpiar
         }
+    }
+
+    private static String hashOrNull(byte[] bytes) {
+        return bytes == null || bytes.length == 0 ? null : ImportService.sha256(bytes);
+    }
+
+    static String describeSize(int bytes) {
+        return bytes < 1024 ? bytes + " B" : (bytes + 512) / 1024 + " KB";
     }
 
     private static void deleteQuietly(Path path) {

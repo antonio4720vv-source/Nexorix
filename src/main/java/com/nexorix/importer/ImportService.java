@@ -64,6 +64,7 @@ public class ImportService {
     private final TransactionService transactionService;
     private final CsvStatementParser csvParser;
     private final PdfStatementParser pdfParser;
+    private final ImportAudit audit;
 
     /**
      * @Autowired le dice a Spring cual constructor usar: hay dos
@@ -76,11 +77,12 @@ public class ImportService {
             AccountRepository accountRepository,
             UserRepository userRepository,
             TransactionRepository transactionRepository,
-            TransactionService transactionService
+            TransactionService transactionService,
+            ImportAudit audit
     ) {
         this(batchRepository, rowRepository, accountRepository, userRepository,
                 transactionRepository, transactionService,
-                new CsvStatementParser(), new PdfStatementParser());
+                new CsvStatementParser(), new PdfStatementParser(), audit);
     }
 
     /** Constructor para pruebas. */
@@ -92,7 +94,8 @@ public class ImportService {
             TransactionRepository transactionRepository,
             TransactionService transactionService,
             CsvStatementParser csvParser,
-            PdfStatementParser pdfParser
+            PdfStatementParser pdfParser,
+            ImportAudit audit
     ) {
         this.batchRepository = batchRepository;
         this.rowRepository = rowRepository;
@@ -102,6 +105,7 @@ public class ImportService {
         this.transactionService = transactionService;
         this.csvParser = csvParser;
         this.pdfParser = pdfParser;
+        this.audit = audit;
     }
 
     // ============================================================
@@ -247,6 +251,7 @@ public class ImportService {
         }
 
         int imported = 0;
+        List<Long> created = new ArrayList<>();
 
         for (ImportRow row : rowRepository.findByBatchIdOrderByLineNumberAsc(batchId)) {
 
@@ -265,11 +270,16 @@ public class ImportService {
             );
 
             row.setTransactionId(transaction.getId());
+            created.add(transaction.getId());
             imported++;
         }
 
         batch.confirm(imported);
         batchRepository.save(batch);
+
+        audit.recordAfterCommit(batch, ImportAudit.CONFIRMED, imported + " movimientos creados de "
+                + selected.size() + " elegidos · cuenta " + batch.getAccount().getName()
+                + " · ids " + idsSummary(created));
 
         log.info("Importacion {} confirmada: {} movimientos", batchId, imported);
         return imported;
@@ -280,6 +290,18 @@ public class ImportService {
         ImportBatch batch = ownedPreview(username, batchId);
         batch.cancel();
         batchRepository.save(batch);
+        audit.recordAfterCommit(batch, ImportAudit.CANCELLED, "La persona descartó la vista previa");
+    }
+
+    /** "101–140" si son seguidos, si no la lista corta. */
+    static String idsSummary(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return "ninguno";
+        }
+        if (ids.size() > 8) {
+            return ids.get(0) + " … " + ids.get(ids.size() - 1) + " (" + ids.size() + ")";
+        }
+        return ids.toString().replace("[", "").replace("]", "");
     }
 
     @Transactional(readOnly = true)

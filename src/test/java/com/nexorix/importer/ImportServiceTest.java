@@ -62,7 +62,7 @@ class ImportServiceTest {
         transactionService = mock(TransactionService.class);
 
         service = new ImportService(batchRepository, rowRepository, accountRepository,
-                userRepository, transactionRepository, transactionService);
+                userRepository, transactionRepository, transactionService, mock(ImportAudit.class));
 
         User ana = new User("Ana", "ana", "ana@nexorix.com", "1", "hash");
         ReflectionTestUtils.setField(ana, "id", 1L);

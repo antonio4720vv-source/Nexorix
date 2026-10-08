@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Cobro</title>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-left">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark"></span>Nexorix</a>
+    </div>
+    <a class="button secondary small" href="/dividir.html">Dividir gastos</a>
+</header>
+
+<main class="page" style="max-width:520px">
+    <section class="panel stack" id="card" style="display:grid;gap:12px">
+        <p class="muted" id="loading">Abriendo el cobro...</p>
+    </section>
+</main>
+
+<script src="/nexorix.js"></script>
+<script>
+    const $ = (id) => document.getElementById(id);
+    const esc = Nexorix.esc;
+    const money = Nexorix.money;
+    const token = new URLSearchParams(window.location.search).get("t") || "";
+
+    const STATUS = {
+        PENDIENTE: '<span class="pill wait">Pendiente</span>',
+        REPORTADO: '<span class="pill warn">Avisaste que ya pagaste</span>',
+        SALDADO: '<span class="pill ok">Pagado</span>'
+    };
+
+    function show(c) {
+        const mine = !c.iAmPayer;
+        let body;
+        if (c.cancelled) {
+            body = '<p><span class="pill bad">Cuenta cancelada</span></p><p class="muted">El pagador canceló esta cuenta. Ya no debes nada.</p>';
+        } else if (mine) {
+            body = `<p style="margin:0">${STATUS[c.status] || esc(c.status)}</p>
+                ${c.status === "SALDADO" ? '<p class="muted">¡Listo! El pagador ya confirmó tu pago.</p>' : `
+                <p class="muted" style="margin:0">Págale a <strong>${esc(c.payerName)}</strong> por Nequi, Daviplata, transferencia o efectivo.
+                   Después pulsa el botón para avisarle. Nexorix no mueve dinero.</p>
+                ${c.status === "PENDIENTE" ? '<button class="button full" id="paid" type="button">Ya pagué</button>' : ""}`}`;
+        } else {
+            body = `<p style="margin:0">${STATUS[c.status] || esc(c.status)}</p>
+                <p class="muted" style="margin:0">Este es el cobro de <strong>${esc(c.participantName)}</strong> (@${esc(c.participantUsername)}).
+                   Compártele este mismo enlace para que pueda avisarte cuando pague.</p>
+                ${c.status !== "SALDADO" ? '<button class="button full" id="settle" type="button">Ya me pagó</button>' : ""}`;
+        }
+        $("card").innerHTML = `
+            <p class="muted" style="margin:0">${mine ? "Te cobra" : "Cobras a " + esc(c.participantName)}</p>
+            <h1 style="margin:0">${money(c.amount)}</h1>
+            <p style="margin:0"><strong>${esc(mine ? c.payerName : c.participantName)}</strong> · ${esc(c.title)}
+               <small class="muted">(cuenta total ${money(c.total)}, dividida en partes iguales)</small></p>
+            ${body}
+            <p class="notice" id="message" role="status" aria-live="polite"></p>`;
+
+        const paid = $("paid");
+        if (paid) paid.addEventListener("click", async () => {
+            paid.disabled = true;
+            const r = await Nexorix.api("/api/split/collect/" + encodeURIComponent(token) + "/paid", { method: "POST" });
+            if (r.ok) show(r.data); else { paid.disabled = false; Nexorix.say($("message"), Nexorix.errorOf(r, "No fue posible avisar."), "error"); }
+        });
+        const settle = $("settle");
+        if (settle) settle.addEventListener("click", async () => {
+            settle.disabled = true;
+            const r = await Nexorix.api("/api/split/shares/" + c.shareId + "/settle", { method: "POST" });
+            if (r.ok) load(); else { settle.disabled = false; Nexorix.say($("message"), Nexorix.errorOf(r, "No fue posible marcarlo."), "error"); }
+        });
+    }
+
+    async function load() {
+        const r = await Nexorix.api("/api/split/collect/" + encodeURIComponent(token));
+        if (r.status === 401) {
+            // Inicia sesion y vuelve a este mismo cobro.
+            window.location.href = "/login.html?volver=" + encodeURIComponent("/cobro.html?t=" + token);
+            return;
+        }
+        if (!r.ok) {
+            $("card").innerHTML = `<h2>No encontramos este cobro</h2>
+                <p class="muted">${esc(Nexorix.errorOf(r, "El enlace no es válido."))} Si es para ti, inicia sesión con la cuenta a la que te lo enviaron.</p>
+                <a class="button" href="/dividir.html">Ir a Dividir gastos</a>`;
+            return;
+        }
+        show(r.data);
+    }
+
+    load();
+</script>
+</body>
+</html>

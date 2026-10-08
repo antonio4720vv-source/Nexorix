@@ -155,10 +155,16 @@
         $(focus).focus();
     }
 
+    /** Si llego desde un enlace (por ejemplo un cobro), vuelve ahi. Solo paginas de Nexorix. */
+    function backTo() {
+        const back = new URLSearchParams(window.location.search).get("volver") || "";
+        return /^\/[a-z0-9-]+\.html(\?[A-Za-z0-9_=&-]*)?$/i.test(back) ? back : "/dashboard.html";
+    }
+
     function go(next) {
         if (next === "DONE") {
             Nexorix.say(message, "Listo. Entrando a Nexorix...", "ok");
-            window.location.href = "/dashboard.html";
+            window.location.href = backTo();
             return;
         }
         Nexorix.say(message, "", "");
