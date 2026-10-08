@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Trace</title>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-left">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark"></span>Nexorix</a>
+        <span id="navSlot" data-active="traza"></span>
+    </div>
+    <div class="who">
+        <span class="who-name" id="welcome"></span>
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <button class="button secondary small" id="logoutButton" type="button">Salir</button>
+    </div>
+</header>
+
+<main class="page">
+    <div class="page-head">
+        <div>
+            <h1>Trace</h1>
+            <p>Las transferencias entre tus propias cuentas no son ingresos ni gastos. Trace las encuentra,
+               incluso cuando una salida se reparte en varias cuentas (1 → N), varias salidas llegan juntas (N → 1)
+               o el banco cobró una comisión.</p>
+        </div>
+        <button class="button secondary" type="button" id="askTrace"><span data-icon="ai" style="display:inline-flex"></span> Pregúntale a Nexo</button>
+    </div>
+
+    <div class="stat-grid" id="stats">
+        <div class="stat moved"><small>Por confirmar</small><strong id="statPending">–</strong></div>
+        <div class="stat"><small>Confirmadas</small><strong id="statConfirmed">–</strong></div>
+        <div class="stat moved"><small>Movido entre tus cuentas</small><strong class="amt" id="statInternal">–</strong></div>
+        <div class="stat out"><small>Comisiones pagadas</small><strong class="amt" id="statFees">–</strong></div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Vista">
+        <button role="tab" type="button" id="tabPending" aria-selected="true" aria-controls="pendingView">Por confirmar<span class="count" id="countPending"></span></button>
+        <button role="tab" type="button" id="tabHistory" aria-selected="false" aria-controls="historyView">Historial<span class="count" id="countHistory"></span></button>
+    </div>
+
+    <section id="pendingView" role="tabpanel" aria-labelledby="tabPending">
+        <div id="pendingGroups"><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+
+    <section id="historyView" role="tabpanel" aria-labelledby="tabHistory" hidden>
+        <div class="preset-row" id="historyFilter">
+            <button type="button" data-filter="all" aria-pressed="true">Todas</button>
+            <button type="button" data-filter="active" aria-pressed="false">Confirmadas</button>
+            <button type="button" data-filter="undone" aria-pressed="false">Deshechas</button>
+        </div>
+        <div class="trace-list" id="historyList"></div>
+    </section>
+</main>
+
+<script src="/nexorix.js"></script>
+<script src="/trace-ui.js"></script>
+<script src="/agente.js"></script>
+<script>
+    const $ = (id) => document.getElementById(id);
+    const esc = Nexorix.esc;
+    const money = Nexorix.money;
+
+    async function api(path, options) {
+        const result = await Nexorix.api(path, options);
+        if (result.status === 401) {
+            window.location.href = "/login.html?expirada=1";
+            throw new Error("Sesion vencida");
+        }
+        return result;
+    }
+
+    async function header() {
+        const slot = $("navSlot");
+        slot.outerHTML = Nexorix.nav(slot.dataset.active);
+        const me = await api("/api/users/me");
+        if (me.ok && me.data) {
+            $("welcome").textContent = me.data.name;
+            $("avatar").textContent = Nexorix.initials(me.data.name);
+        }
+        $("logoutButton").addEventListener("click", async () => {
+            try { await Nexorix.api("/api/users/logout", { method: "POST" }); }
+            finally { window.location.href = "/login.html"; }
+        });
+    }
+
+    const GROUPS = [
+        ["TRANSFERENCIA PROPIA MUY PROBABLE", "Muy probables", "Cuadran exacto y en poco tiempo. Normalmente puedes confirmarlas sin dudar."],
+        ["TRANSFERENCIA PROPIA PROBABLE", "Probables", "Cuadran con una comisión, son 1 → N / N → 1 o pasó más tiempo. Revisa antes de confirmar."],
+        ["REVISAR", "Para revisar", "Hay coincidencia, pero con poca evidencia. Confírmalas solo si estás seguro."]
+    ];
+    let suggestions = [], groupsHistory = [], historyFilter = "all";
+
+    function showTab(tab) {
+        const pending = tab === "pending";
+        $("tabPending").setAttribute("aria-selected", String(pending));
+        $("tabHistory").setAttribute("aria-selected", String(!pending));
+        $("pendingView").hidden = !pending;
+        $("historyView").hidden = pending;
+    }
+
+    $("tabPending").addEventListener("click", () => { showTab("pending"); location.hash = ""; });
+    $("tabHistory").addEventListener("click", () => { showTab("history"); location.hash = "historial"; });
+
+    function renderPending() {
+        $("countPending").textContent = suggestions.length || "";
+        if (!suggestions.length) {
+            $("pendingGroups").innerHTML = `<div class="panel"><p class="empty">Todo al día: no hay transferencias por confirmar.
+                Cuando registres o importes movimientos, Trace las buscará solo.</p></div>`;
+            return;
+        }
+        $("pendingGroups").innerHTML = GROUPS.map(([key, title, help]) => {
+            const list = suggestions.filter(s => s.classification === key);
+            if (!list.length) return "";
+            return `<section class="panel stack">
+                <div class="panel-head"><h2>${title}</h2><span class="count">${list.length}</span></div>
+                <p class="muted" style="margin:-6px 0 14px;font-size:.9rem">${help}</p>
+                <div class="trace-list">${list.map(s => NexorixTrace.card(s)).join("")}</div>
+            </section>`;
+        }).join("");
+        NexorixTrace.bind($("pendingGroups"), suggestions, load);
+    }
+
+    function renderHistory() {
+        $("countHistory").textContent = groupsHistory.length || "";
+        const list = groupsHistory.filter(g => historyFilter === "all" || (historyFilter === "active") === g.active);
+        $("historyList").innerHTML = list.length
+            ? list.map(g => NexorixTrace.card(g, { history: true })).join("")
+            : '<div class="panel"><p class="empty">Todavía no hay transferencias en el historial.</p></div>';
+        NexorixTrace.bind($("historyList"), [], load);
+    }
+
+    $("historyFilter").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        historyFilter = b.dataset.filter;
+        $("historyFilter").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        renderHistory();
+    }));
+
+    async function load() {
+        const [s, h, o] = await Promise.all([api("/api/trace/suggestions"), api("/api/trace/history"), api("/api/trace/overview")]);
+        suggestions = s.ok ? s.data : [];
+        groupsHistory = h.ok ? h.data : [];
+        if (o.ok) {
+            $("statPending").textContent = o.data.pending;
+            $("statConfirmed").textContent = o.data.confirmed;
+            $("statInternal").textContent = money(o.data.internalAmount);
+            $("statFees").textContent = money(o.data.fees);
+        }
+        renderPending();
+        renderHistory();
+    }
+
+    document.addEventListener("nexorix:changed", load);
+    $("askTrace").addEventListener("click", () => NexoAgent.open("¿Qué transferencias entre mis cuentas tengo por confirmar y cuáles me recomiendas revisar?"));
+
+    (async () => {
+        try {
+            document.querySelectorAll("[data-icon]").forEach(el => el.innerHTML = Nexorix.icon(el.dataset.icon));
+            await header();
+            if (location.hash === "#historial") showTab("history");
+            await load();
+        } catch (e) { if (e.message !== "Sesion vencida") console.error(e); }
+    })();
+</script>
+</body>
+</html>

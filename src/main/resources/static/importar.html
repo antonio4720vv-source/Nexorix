@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Importar extractos</title>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-left">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark"></span>Nexorix</a>
+        <span id="navSlot"></span>
+    </div>
+    <a class="button secondary small" href="/dashboard.html">Volver al panel</a>
+</header>
+
+<main class="page" style="max-width:820px">
+
+    <!-- 1. Elegir archivos -->
+    <form class="panel" id="uploadForm" novalidate>
+        <div class="panel-head">
+            <h2 style="font-size:1.5rem">Importar extractos</h2>
+        </div>
+        <p class="muted" style="margin:-4px 0 16px">
+            Sube uno o varios extractos (PDF o CSV) de una misma cuenta. Los leemos en segundo plano
+            y antes de guardar nada te mostramos cada movimiento.
+        </p>
+
+        <div class="ai-note" id="aiNote" hidden>
+            <span data-icon="ai"></span>
+            <span><strong>Con IA:</strong> si un PDF es escaneado, tiene un formato raro o no cuadra con los
+            totales del banco, la inteligencia artificial lo lee por ti. Igual revisas todo antes de importar.
+            En ese caso el archivo se envía de forma cifrada a Gemini (Google) solo para leerlo.</span>
+        </div>
+
+        <div class="field">
+            <label for="account">¿De qué cuenta son los extractos?</label>
+            <select id="account" required></select>
+        </div>
+
+        <label class="dropzone" id="dropzone" for="file">
+            <span class="dot moved" data-icon="upload" style="width:46px;height:46px"></span>
+            <strong>Elige o arrastra tus archivos</strong>
+            <span class="muted">Hasta 10 archivos a la vez · PDF o CSV · máximo 5 MB cada uno</span>
+            <input type="file" id="file" multiple accept=".pdf,.csv,.txt,application/pdf,text/csv">
+        </label>
+
+        <div class="file-chips" id="chips"></div>
+
+        <div class="field" id="passwordField" hidden>
+            <label for="password">Contraseña de los PDF (si tienen)</label>
+            <input id="password" type="password" autocomplete="off"
+                   placeholder="En muchos bancos es tu número de cédula">
+        </div>
+        <label class="reveal" id="passwordReveal" hidden>
+            <input type="checkbox" data-reveal="password"> Mostrar contraseña
+        </label>
+
+        <button class="button full" type="submit" id="uploadButton" disabled>Leer extractos</button>
+        <p class="notice" id="message" role="status" aria-live="polite"></p>
+
+        <p class="muted" style="font-size:.85rem;margin:16px 0 0">
+            ¿Tu banco no da PDF ni CSV? Llena la <a href="/plantilla-movimientos.csv" download>plantilla de Nexorix</a>
+            en Excel y guárdala como CSV. No guardamos tus archivos: solo los movimientos que confirmes.
+        </p>
+    </form>
+
+    <!-- 2. Archivos en proceso / listos -->
+    <section class="panel stack" id="filesPanel" hidden>
+        <div class="panel-head">
+            <h2>Tus archivos</h2>
+            <span class="muted" id="filesSummary" style="font-size:.85rem"></span>
+        </div>
+        <div class="progress-bar" aria-hidden="true"><span id="progress" style="width:0%"></span></div>
+        <div id="files"></div>
+
+        <div class="import-actions">
+            <button class="button" type="button" id="importAll" disabled>Importar todo lo marcado</button>
+        </div>
+    </section>
+</main>
+
+<script src="/nexorix.js"></script>
+<script src="/agente.js"></script>
+<script>
+    const $ = (id) => document.getElementById(id);
+    const esc = Nexorix.esc;
+    const STORE = "nexorix.imports";
+    const MAX_FILES = 10;
+    const MAX_SIZE = 5 * 1024 * 1024;
+
+    let chosen = [];          // archivos elegidos (File)
+    let batches = [];         // [{ batchId, fileName, status, ... , rows?, open? }]
+    let pollTimer = null;
+
+    async function api(path, options) {
+        const result = await Nexorix.api(path, options);
+        if (result.status === 401) {
+            window.location.href = "/login.html?expirada=1";
+            throw new Error("Sesion vencida");
+        }
+        return result;
+    }
+
+    // ------------------------------------------------------------
+    // Inicio
+    // ------------------------------------------------------------
+
+    async function init() {
+        $("navSlot").outerHTML = Nexorix.nav("importar");
+        document.querySelectorAll("[data-icon]").forEach(el => el.innerHTML = Nexorix.icon(el.dataset.icon));
+
+        const [accounts, ai] = await Promise.all([api("/api/accounts"), api("/api/ai/status")]);
+        $("aiNote").hidden = !(ai.ok && ai.data && ai.data.enabled);
+
+        const list = accounts.ok && accounts.data ? accounts.data : [];
+        if (list.length === 0) {
+            $("uploadForm").innerHTML = `<h2>Primero agrega una cuenta</h2>
+                <p class="muted">Para importar extractos necesitas la cuenta a la que pertenecen.</p>
+                <a class="button" href="/dashboard.html">Ir al panel</a>`;
+            return;
+        }
+        $("account").innerHTML = list.map(a =>
+            `<option value="${a.id}">${esc(a.name)} (${esc(a.bank)})</option>`).join("");
+
+        // Archivos de esta sesion que siguen en proceso (por si recargaste la pagina).
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(STORE) || "[]");
+            if (saved.length) {
+                batches = saved.map(id => ({ batchId: id, status: "QUEUED", fileName: "…" }));
+                await refresh();
+            }
+        } catch (e) { /* sin almacenamiento */ }
+    }
+
+    function remember() {
+        try {
+            sessionStorage.setItem(STORE, JSON.stringify(
+                batches.filter(b => b.batchId && !["CONFIRMED", "CANCELLED"].includes(b.status)).map(b => b.batchId)));
+        } catch (e) { /* sin almacenamiento */ }
+    }
+
+    // ------------------------------------------------------------
+    // Elegir archivos
+    // ------------------------------------------------------------
+
+    function addFiles(files) {
+        for (const file of files) {
+            if (chosen.length >= MAX_FILES) {
+                Nexorix.toast(`Máximo ${MAX_FILES} archivos a la vez.`, "error");
+                break;
+            }
+            if (file.size > MAX_SIZE) {
+                Nexorix.toast(`${file.name} pesa más de 5 MB.`, "error");
+                continue;
+            }
+            if (!chosen.some(f => f.name === file.name && f.size === file.size)) {
+                chosen.push(file);
+            }
+        }
+        renderChips();
+    }
+
+    function renderChips() {
+        $("chips").innerHTML = chosen.map((f, i) => `
+            <span class="file-chip"><span>${esc(f.name)}</span>
+                <button type="button" data-remove="${i}" aria-label="Quitar ${esc(f.name)}">×</button></span>`).join("");
+        $("chips").querySelectorAll("[data-remove]").forEach(b => b.addEventListener("click", () => {
+            chosen.splice(Number(b.dataset.remove), 1);
+            renderChips();
+        }));
+        const hasPdf = chosen.some(f => f.name.toLowerCase().endsWith(".pdf"));
+        $("passwordField").hidden = !hasPdf;
+        $("passwordReveal").hidden = !hasPdf;
+        $("uploadButton").disabled = chosen.length === 0;
+        $("uploadButton").textContent = chosen.length <= 1 ? "Leer extracto" : `Leer ${chosen.length} extractos`;
+    }
+
+    $("file").addEventListener("change", () => { addFiles($("file").files); $("file").value = ""; });
+
+    const zone = $("dropzone");
+    ["dragenter", "dragover"].forEach(n => zone.addEventListener(n, (e) => { e.preventDefault(); zone.classList.add("drag"); }));
+    ["dragleave", "drop"].forEach(n => zone.addEventListener(n, () => zone.classList.remove("drag")));
+    zone.addEventListener("drop", (e) => { e.preventDefault(); addFiles(e.dataTransfer.files); });
+
+    // ------------------------------------------------------------
+    // Subir
+    // ------------------------------------------------------------
+
+    $("uploadForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!chosen.length) return;
+
+        const form = new FormData();
+        chosen.forEach(f => form.append("files", f));
+        form.append("accountId", $("account").value);
+        if ($("password").value) form.append("password", $("password").value);
+
+        $("uploadButton").disabled = true;
+        Nexorix.say($("message"), "Subiendo archivos...", "wait");
+
+        try {
+            const result = await api("/api/imports", { method: "POST", body: form });
+            if (!result.ok) {
+                Nexorix.say($("message"), Nexorix.errorOf(result,
+                    result.status === 413 ? "Los archivos pesan demasiado (máximo 5 MB cada uno)."
+                        : "No pudimos recibir los archivos."), "error");
+                $("uploadButton").disabled = false;
+                return;
+            }
+            Nexorix.say($("message"), "", "");
+            result.data.forEach(s => batches.unshift({ ...s, localId: Math.random() }));
+            chosen = [];
+            renderChips();
+            remember();
+            render();
+            schedulePoll();
+        } catch (error) {
+            if (error.message !== "Sesion vencida") {
+                Nexorix.say($("message"), "No hay conexión con Nexorix.", "error");
+            }
+            $("uploadButton").disabled = false;
+        }
+    });
+
+    // ------------------------------------------------------------
+    // Seguimiento (cada 1,5 s mientras haya archivos en proceso)
+    // ------------------------------------------------------------
+
+    function active(b) { return b.status === "QUEUED" || b.status === "PROCESSING"; }
+
+    function schedulePoll() {
+        clearTimeout(pollTimer);
+        if (batches.some(active)) pollTimer = setTimeout(refresh, 1500);
+    }
+
+    async function refresh() {
+        const ids = batches.filter(b => b.batchId && (active(b) || b.fileName === "…")).map(b => b.batchId);
+        if (ids.length) {
+            const result = await api("/api/imports?ids=" + ids.join(","));
+            if (result.ok) {
+                result.data.forEach(s => {
+                    const b = batches.find(x => x.batchId === s.batchId);
+                    if (b) Object.assign(b, s);
+                });
+                // los que ya no existen (expirados) se quitan
+                batches = batches.filter(b => b.fileName !== "…");
+                remember();
+            }
+        }
+        render();
+        schedulePoll();
+    }
+
+    // ------------------------------------------------------------
+    // Pintar archivos
+    // ------------------------------------------------------------
+
+    const LABEL = {
+        QUEUED: ["wait", "En cola", true],
+        PROCESSING: ["wait", "Leyendo", true],
+        PREVIEW: ["ok", "Listo para revisar", false],
+        FAILED: ["bad", "No se pudo leer", false],
+        CONFIRMED: ["done", "Importado", false],
+        CANCELLED: ["bad", "Descartado", false]
+    };
+
+    function render() {
+        $("filesPanel").hidden = batches.length === 0;
+        const done = batches.filter(b => !active(b)).length;
+        $("progress").style.width = batches.length ? (done / batches.length * 100) + "%" : "0%";
+        $("filesSummary").textContent = batches.length
+            ? `${done} de ${batches.length} listos` : "";
+
+        $("files").innerHTML = batches.map((b, i) => {
+            const [kind, text, spinning] = LABEL[b.status] || ["wait", b.status, false];
+            const ready = b.status === "PREVIEW";
+            const check = b.checkMessage
+                ? `<div class="check-msg ${b.checkMessage.startsWith("Cuadra") ? "ok" : "warn"}">${esc(b.checkMessage)}</div>` : "";
+            return `
+            <article class="file-card ${ready ? "ready" : ""} ${b.status === "FAILED" ? "failed" : ""} ${spinning ? "reading" : ""}">
+                <div class="file-head">
+                    <div class="file-name"><span class="dot" style="background:#eef3f1">${Nexorix.icon("file")}</span>
+                        <span>${esc(b.fileName)}</span>
+                        ${b.aiUsed ? `<span class="ai-badge">${Nexorix.icon("ai")} Leído con IA</span>` : ""}</div>
+                    <span class="pill ${kind}">${spinning ? '<span class="spin"></span>' : ""}${text}</span>
+                </div>
+                ${spinning ? `<div class="reading-steps">
+                    <span class="on">Recibido</span>
+                    <span class="${b.status === "PROCESSING" ? "on" : ""}">Leyendo el extracto</span>
+                    <span class="${b.status === "PROCESSING" ? "on" : ""}">Cuadre con totales</span>
+                    <span>Clasificando con IA</span></div>` : ""}
+                ${ready ? `<div class="file-meta">
+                    <span class="chip-label ok">${b.newRows} nuevos</span>
+                    ${b.duplicates ? `<span class="chip-label warn">${b.duplicates} ya estaban</span>` : ""}
+                    ${b.invalid ? `<span class="chip-label bad">${b.invalid} con errores</span>` : ""}
+                </div>` : ""}
+                ${b.errorMessage ? `<div class="check-msg warn">${esc(b.errorMessage)}</div>` : ""}
+                ${check}
+                ${ready ? `<div class="file-actions">
+                    <button class="button small secondary" type="button" data-toggle="${i}">${b.open ? "Ocultar" : "Revisar movimientos"}</button>
+                    <button class="button small" type="button" data-confirm="${i}">Importar este</button>
+                    <button class="link-button" type="button" data-cancel="${i}">Descartar</button>
+                </div>` : ""}
+                ${ready && b.open && b.rows ? renderRows(b, i) : ""}
+            </article>`;
+        }).join("");
+
+        $("files").querySelectorAll("[data-toggle]").forEach(el => el.addEventListener("click", () => toggle(Number(el.dataset.toggle))));
+        $("files").querySelectorAll("[data-confirm]").forEach(el => el.addEventListener("click", () => confirmOne(Number(el.dataset.confirm))));
+        $("files").querySelectorAll("[data-cancel]").forEach(el => el.addEventListener("click", () => cancelOne(Number(el.dataset.cancel))));
+        $("files").querySelectorAll("input[data-row]").forEach(box => box.addEventListener("change", () => {
+            const b = batches[Number(box.dataset.batch)];
+            const row = b.rows.find(r => r.id === Number(box.dataset.row));
+            row.selected = box.checked;
+            updateImportAll();
+        }));
+        updateImportAll();
+    }
+
+    function renderRows(b, i) {
+        return `<div class="file-rows">` + b.rows.map(row => {
+            const invalid = row.status === "INVALID";
+            const income = row.type === "INGRESO";
+            const date = row.date
+                ? new Date(row.date + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })
+                : `Línea ${row.line}`;
+            return `<label class="import-row ${invalid ? "invalid" : ""}">
+                <input type="checkbox" data-batch="${i}" data-row="${row.id}" ${row.selected ? "checked" : ""} ${invalid ? "disabled" : ""}>
+                <div>
+                    <div class="title">${esc(row.description)}</div>
+                    <div class="meta">${esc(date)}
+                        ${row.categoryLabel ? `<span class="tag neutral">${esc(row.categoryLabel)}</span>` : ""}
+                        ${row.status === "DUPLICATE" ? '<span class="tag" style="background:#fbf2e1;color:#7a520d">Ya estaba</span>' : ""}</div>
+                    ${row.message ? `<div class="note">${esc(row.message)}</div>` : ""}
+                </div>
+                <div class="amount ${invalid ? "" : (income ? "in" : "out")}">${invalid ? "" : (income ? "+ " : "− ") + Nexorix.money(row.amount)}</div>
+            </label>`;
+        }).join("") + `</div>`;
+    }
+
+    async function loadRows(b) {
+        if (b.rows) return;
+        const result = await api(`/api/imports/${b.batchId}`);
+        if (result.ok) b.rows = result.data.rows;
+    }
+
+    async function toggle(i) {
+        const b = batches[i];
+        await loadRows(b);
+        b.open = !b.open;
+        render();
+    }
+
+    function selectedIds(b) {
+        return b.rows ? b.rows.filter(r => r.selected && r.status !== "INVALID").map(r => r.id) : null;
+    }
+
+    function updateImportAll() {
+        const ready = batches.filter(b => b.status === "PREVIEW");
+        const count = ready.reduce((sum, b) => sum + (selectedIds(b) ? selectedIds(b).length : b.newRows), 0);
+        $("importAll").disabled = count === 0;
+        $("importAll").textContent = count ? `Importar todo lo marcado (${count})` : "Importar todo lo marcado";
+    }
+
+    async function confirmBatch(b) {
+        await loadRows(b);
+        const ids = selectedIds(b);
+        if (!ids || !ids.length) return 0;
+        const result = await api(`/api/imports/${b.batchId}/confirm`, { method: "POST", json: { rowIds: ids } });
+        if (!result.ok) {
+            Nexorix.toast(`${b.fileName}: ${Nexorix.errorOf(result, "no se pudo importar")}`, "error");
+            return 0;
+        }
+        b.status = "CONFIRMED";
+        return result.data.imported;
+    }
+
+    async function confirmOne(i) {
+        const imported = await confirmBatch(batches[i]);
+        if (imported) Nexorix.toast(`Importamos ${imported} movimientos de ${batches[i].fileName}.`);
+        remember();
+        render();
+    }
+
+    async function cancelOne(i) {
+        const b = batches[i];
+        await api(`/api/imports/${b.batchId}/cancel`, { method: "POST" });
+        b.status = "CANCELLED";
+        remember();
+        render();
+    }
+
+    $("importAll").addEventListener("click", async () => {
+        $("importAll").disabled = true;
+        let total = 0;
+        for (const b of batches.filter(x => x.status === "PREVIEW")) {
+            total += await confirmBatch(b);
+        }
+        remember();
+        if (total) {
+            window.location.href = "/dashboard.html?importados=" + total;
+        } else {
+            render();
+        }
+    });
+
+    init();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Crea tu PIN</title>
+</head>
+<body>
+
+<div class="access">
+
+    <aside class="access-story on-dark">
+        <a class="brand" href="/"><span class="brand-mark"></span>Nexorix</a>
+        <h1>Tu identidad está verificada.</h1>
+        <p class="intro">
+            Último paso: crea un PIN de 6 dígitos. Te lo pediremos cada vez
+            que entres a Nexorix.
+        </p>
+    </aside>
+
+    <main class="access-form">
+        <form class="form-card" id="pinForm" novalidate>
+            <h2>Crea tu PIN</h2>
+            <p class="lead">Elige 6 dígitos fáciles de recordar para ti y difíciles de adivinar.</p>
+
+            <div class="row">
+                <div class="field">
+                    <label for="pin">PIN</label>
+                    <input class="pin-big" id="pin" type="password" inputmode="numeric"
+                           maxlength="6" autocomplete="off" required>
+                </div>
+                <div class="field">
+                    <label for="pinConfirm">Repítelo</label>
+                    <input class="pin-big" id="pinConfirm" type="password" inputmode="numeric"
+                           maxlength="6" autocomplete="off" required>
+                </div>
+            </div>
+            <p class="hint">Evita 123456, 111111 y tu fecha de nacimiento.</p>
+            <label class="reveal">
+                <input type="checkbox" data-reveal="pin,pinConfirm">
+                Mostrar PIN
+            </label>
+
+            <button class="button full" type="submit" id="pinButton">Crear PIN</button>
+
+            <p class="notice" id="message" role="status" aria-live="polite"></p>
+        </form>
+    </main>
+</div>
+
+<script src="/nexorix.js"></script>
+<script>
+    const message = document.getElementById("message");
+    const button = document.getElementById("pinButton");
+
+    async function init() {
+        const me = await Nexorix.api("/api/users/me");
+
+        if (me.status === 401) {
+            window.location.href = "/login.html";
+            return;
+        }
+
+        // Solo tiene sentido si ya verifico su identidad y aun no tiene PIN.
+        if (!me.data || me.data.kycStatus !== "VERIFIED" || me.data.pinConfigured) {
+            window.location.href = "/dashboard.html";
+            return;
+        }
+
+        document.getElementById("pin").focus();
+    }
+
+    document.getElementById("pinForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const pin = document.getElementById("pin").value.trim();
+        const pinConfirm = document.getElementById("pinConfirm").value.trim();
+
+        if (!/^\d{6}$/.test(pin)) {
+            Nexorix.say(message, "El PIN debe tener exactamente 6 dígitos.", "error");
+            return;
+        }
+        if (pin !== pinConfirm) {
+            Nexorix.say(message, "Los dos PIN no coinciden.", "error");
+            return;
+        }
+
+        button.disabled = true;
+
+        const result = await Nexorix.api("/api/users/me/pin", {
+            method: "POST",
+            json: { pin, pinConfirm }
+        });
+
+        if (result.ok) {
+            Nexorix.say(message, "PIN creado. Entrando a Nexorix...", "ok");
+            window.location.href = "/dashboard.html";
+            return;
+        }
+
+        Nexorix.say(message, Nexorix.errorOf(result, "No fue posible crear el PIN."), "error");
+        button.disabled = false;
+    });
+
+    init();
+</script>
+
+</body>
+</html>

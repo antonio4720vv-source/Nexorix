@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Verificación de identidad</title>
+</head>
+<body>
+
+<div class="access">
+
+    <aside class="access-story on-dark">
+        <a class="brand" href="/"><span class="brand-mark"></span>Nexorix</a>
+        <h1>Verificación de identidad</h1>
+        <p class="intro">
+            Didit revisa tu documento y tu rostro, y nos envía el resultado
+            de forma segura.
+        </p>
+    </aside>
+
+    <main class="access-form">
+        <div class="form-card result" id="card" role="status" aria-live="polite">
+            <div class="badge" id="badge"></div>
+            <h2 id="title">Confirmando tu verificación</h2>
+            <p class="lead" id="detail">
+                Didit nos está enviando el resultado. Esto suele tardar unos segundos.
+            </p>
+            <div id="actions"></div>
+        </div>
+    </main>
+</div>
+
+<script src="/nexorix.js"></script>
+<script>
+    /*
+     * IMPORTANTE: Didit agrega ?status=... a esta direccion, pero NO lo
+     * usamos para decidir nada: cualquiera podria escribir ?status=Approved.
+     * La fuente de verdad es Nexorix, que solo cambia el estado cuando
+     * recibe el webhook firmado de Didit.
+     */
+
+    const INTERVAL_MS = 3000;
+    const MAX_ATTEMPTS = 40; // unos 2 minutos
+
+    const card = document.getElementById("card");
+    const badge = document.getElementById("badge");
+    const title = document.getElementById("title");
+    const detail = document.getElementById("detail");
+    const actions = document.getElementById("actions");
+
+    const toDashboard =
+        '<a class="button full" href="/dashboard.html">Ir a mi panel</a>';
+
+    function show(kind, icon, heading, text, buttonsHtml) {
+        card.className = "form-card result " + kind;
+        badge.innerHTML = Nexorix.icon(icon);
+        title.textContent = heading;
+        detail.textContent = text;
+        actions.innerHTML = buttonsHtml || "";
+    }
+
+    function waiting() {
+        card.className = "form-card result";
+        badge.innerHTML = Nexorix.icon("spinner").replace('class="icon"', 'class="icon spinner"');
+    }
+
+    let attempts = 0;
+
+    async function check() {
+        attempts++;
+
+        let result;
+        try {
+            result = await Nexorix.api("/api/kyc/status");
+        } catch (error) {
+            console.error(error);
+            return retry();
+        }
+
+        if (result.status === 401) {
+            show("", "info", "Inicia sesión para ver el resultado",
+                "Terminaste la verificación en otro dispositivo o tu sesión se cerró. "
+                + "Entra a Nexorix para ver el estado.",
+                '<a class="button full" href="/login.html">Iniciar sesión</a>');
+            return;
+        }
+
+        const kyc = result.data;
+
+        if (!kyc) {
+            show("", "info", "No encontramos una verificación",
+                "Puedes iniciarla desde tu panel.", toDashboard);
+            return;
+        }
+
+        switch (kyc.status) {
+
+            case "VERIFIED": {
+                const me = await Nexorix.api("/api/users/me");
+                const needsPin = me.ok && me.data && !me.data.pinConfigured;
+                show("ok", "check", "Identidad verificada",
+                    needsPin
+                        ? "Último paso: crea tu PIN de 6 dígitos para entrar a Nexorix."
+                        : "Listo. Ya puedes usar Nexorix con todas sus funciones.",
+                    needsPin
+                        ? '<a class="button full" href="/crear-pin.html">Crear mi PIN</a>'
+                        : toDashboard);
+                return;
+            }
+
+            case "REJECTED":
+                show("bad", "close", "No pudimos verificar tu identidad",
+                    "La verificación fue rechazada o expiró. Inténtalo de nuevo desde "
+                    + "tu panel, con buena luz y el documento completo en la foto.",
+                    toDashboard);
+                return;
+
+            case "MANUAL_REVIEW":
+                show("review", "clock", "Tu verificación está en revisión",
+                    "Un analista revisará tus datos. Mientras tanto puedes entrar a tu panel.",
+                    toDashboard);
+                return;
+
+            default:
+                // PENDING o IN_PROGRESS: el webhook todavia no llega.
+                return retry();
+        }
+    }
+
+    function retry() {
+        if (attempts >= MAX_ATTEMPTS) {
+            show("", "clock", "El resultado está tardando",
+                "Didit todavía no nos confirma el resultado. Lo verás en tu panel "
+                + "apenas llegue.", toDashboard);
+            return;
+        }
+        setTimeout(check, INTERVAL_MS);
+    }
+
+    waiting();
+    check();
+</script>
+
+</body>
+</html>

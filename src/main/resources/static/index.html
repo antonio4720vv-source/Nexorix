@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Crear cuenta</title>
+</head>
+<body>
+
+<div class="access">
+
+    <aside class="access-story on-dark">
+        <a class="brand" href="/"><span class="brand-mark"></span>Nexorix</a>
+
+        <h1>Sigue tu dinero, no solo tus movimientos.</h1>
+        <p class="intro">
+            Conecta tus cuentas y Nexorix te muestra qué dinero entró de verdad
+            y qué solo pasó de una cuenta tuya a otra.
+        </p>
+
+        <svg class="flow-art" viewBox="0 0 420 230" role="img"
+             aria-label="Dinero moviéndose entre tus cuentas">
+            <path class="route" d="M120 62 C 190 40, 230 40, 282 52"/>
+            <path class="route" d="M120 78 C 190 120, 230 170, 282 178"/>
+            <path class="route real" d="M70 196 C 150 210, 220 120, 282 66"/>
+            <g font-family="Manrope, sans-serif" font-size="13" font-weight="700">
+                <rect x="20" y="44" width="100" height="52" rx="14" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.2)"/>
+                <text x="70" y="75" text-anchor="middle" fill="#fff">Nequi</text>
+                <rect x="282" y="26" width="118" height="52" rx="14" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.2)"/>
+                <text x="341" y="57" text-anchor="middle" fill="#fff">Davivienda</text>
+                <rect x="282" y="152" width="118" height="52" rx="14" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.2)"/>
+                <text x="341" y="183" text-anchor="middle" fill="#fff">Nu</text>
+                <rect x="10" y="176" width="66" height="40" rx="12" fill="rgba(94,224,197,.16)" stroke="rgba(94,224,197,.5)"/>
+                <text x="43" y="201" text-anchor="middle" fill="#5ee0c5" font-size="12">Salario</text>
+            </g>
+        </svg>
+
+        <ol class="steps">
+            <li>
+                <div>
+                    <strong>Crea tu cuenta</strong>
+                    Tus datos básicos y una contraseña.
+                </div>
+            </li>
+            <li>
+                <div>
+                    <strong>Verifica tu identidad</strong>
+                    Con tu documento y la cámara. Toma unos 2 minutos.
+                </div>
+            </li>
+            <li>
+                <div>
+                    <strong>Crea tu PIN y entra</strong>
+                    Un PIN de 6 dígitos para confirmar que eres tú cada vez que entres.
+                </div>
+            </li>
+        </ol>
+    </aside>
+
+    <main class="access-form">
+        <form class="form-card" id="registerForm" novalidate>
+
+            <h2>Crea tu cuenta</h2>
+            <p class="lead">
+                ¿Ya tienes una? <a href="/login.html">Inicia sesión</a>
+            </p>
+
+            <div class="field">
+                <label for="name">Nombre completo</label>
+                <input id="name" autocomplete="name" placeholder="Como aparece en tu documento" required>
+            </div>
+
+            <div class="row">
+                <div class="field">
+                    <label for="username">Usuario</label>
+                    <input id="username" autocomplete="username" maxlength="30" required>
+                </div>
+                <div class="field">
+                    <label for="email">Correo</label>
+                    <input id="email" type="email" autocomplete="email" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="field">
+                    <label for="documentType">Tipo de documento</label>
+                    <select id="documentType">
+                        <option value="CC">Cédula (CC)</option>
+                        <option value="CE">Cédula de extranjería (CE)</option>
+                        <option value="PP">Pasaporte</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="documentNumber">Número de documento</label>
+                    <input id="documentNumber" inputmode="numeric" required>
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="password">Contraseña</label>
+                <input id="password" type="password" autocomplete="new-password"
+                       aria-describedby="passwordRules" required>
+            </div>
+            <ul class="rules" id="passwordRules">
+                <li data-rule="length">10 caracteres o más</li>
+                <li data-rule="upper">Una mayúscula</li>
+                <li data-rule="lower">Una minúscula</li>
+                <li data-rule="digit">Un número</li>
+                <li data-rule="special">Un carácter especial (!@#$%*?)</li>
+                <li data-rule="nospace">Sin espacios</li>
+            </ul>
+
+            <div class="field">
+                <label for="passwordConfirm">Repite la contraseña</label>
+                <input id="passwordConfirm" type="password" autocomplete="new-password" required>
+            </div>
+            <label class="reveal">
+                <input type="checkbox" data-reveal="password,passwordConfirm">
+                Mostrar contraseña
+            </label>
+
+            <label class="check">
+                <input type="checkbox" id="consent" required>
+                <span>
+                    Acepto que Nexorix verifique mi identidad a través de Didit,
+                    que procesará la foto de mi documento y de mi rostro.
+                </span>
+            </label>
+
+            <button class="button full" id="submitButton" type="submit">
+                Crear cuenta y verificar identidad
+            </button>
+
+            <p class="notice" id="message" role="status" aria-live="polite"></p>
+        </form>
+    </main>
+</div>
+
+<script src="/nexorix.js"></script>
+<script>
+    const form = document.getElementById("registerForm");
+    const button = document.getElementById("submitButton");
+    const message = document.getElementById("message");
+
+    // Reglas de la contrasena (las mismas que revisa el servidor).
+    function passwordRules(password) {
+        return {
+            length: password.length >= 10 && password.length <= 72,
+            upper: /\p{Lu}/u.test(password),
+            lower: /\p{Ll}/u.test(password),
+            digit: /\d/.test(password),
+            special: /[^\p{L}\p{N}\s]/u.test(password),
+            nospace: password.length > 0 && !/\s/.test(password)
+        };
+    }
+
+    document.getElementById("password").addEventListener("input", (event) => {
+        const rules = passwordRules(event.target.value);
+        document.querySelectorAll("#passwordRules li").forEach(item => {
+            item.classList.toggle("ok", rules[item.dataset.rule]);
+        });
+    });
+
+    function value(id) {
+        return document.getElementById(id).value.trim();
+    }
+
+    function validate() {
+        if (!value("name") || !value("username") || !value("email")
+            || !value("documentNumber")) {
+            return "Completa todos los campos.";
+        }
+        if (!/^\S+@\S+\.\S+$/.test(value("email"))) {
+            return "Escribe un correo válido.";
+        }
+        if (!/^[A-Za-z0-9._-]{4,30}$/.test(value("username"))) {
+            return "El usuario debe tener entre 4 y 30 caracteres: letras, números, punto, guion o guion bajo.";
+        }
+        const password = document.getElementById("password").value;
+        const failed = Object.entries(passwordRules(password)).find(([, ok]) => !ok);
+        if (failed) {
+            return "La contraseña no cumple todas las reglas de abajo.";
+        }
+        if (password.toLowerCase().includes(value("username").toLowerCase())) {
+            return "La contraseña no puede contener tu nombre de usuario.";
+        }
+        if (password !== document.getElementById("passwordConfirm").value) {
+            return "Las dos contraseñas no coinciden.";
+        }
+        if (!document.getElementById("consent").checked) {
+            return "Para continuar, acepta la verificación de identidad.";
+        }
+        return null;
+    }
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const problem = validate();
+        if (problem) {
+            Nexorix.say(message, problem, "error");
+            return;
+        }
+
+        button.disabled = true;
+
+        try {
+            // 1. Crear la cuenta
+            Nexorix.say(message, "Creando tu cuenta...", "wait");
+
+            const created = await Nexorix.api("/api/users", {
+                method: "POST",
+                json: {
+                    name: value("name"),
+                    username: value("username"),
+                    email: value("email"),
+                    cedula: value("documentNumber"),
+                    // La contrasena se envia tal cual (sin trim): los espacios cuentan.
+                    password: document.getElementById("password").value
+                }
+            });
+
+            if (!created.ok) {
+                // Los errores de validacion (400) traen un mensaje claro,
+                // por ejemplo "La cédula ya está registrada."
+                Nexorix.say(message,
+                    Nexorix.errorOf(created, "No fue posible crear la cuenta. Intenta de nuevo."),
+                    "error");
+                button.disabled = false;
+                return;
+            }
+
+            // 2. Nexorix ya dejo la sesion iniciada al crear la cuenta.
+
+            // 3. Crear la sesion de verificacion en Didit
+            Nexorix.say(message, "Preparando la verificación de identidad...", "wait");
+
+            const params = new URLSearchParams({
+                documentType: value("documentType"),
+                documentNumber: value("documentNumber")
+            });
+
+            const kyc = await Nexorix.api("/api/kyc/start?" + params, { method: "POST" });
+
+            if (!kyc.ok || !kyc.data || !kyc.data.verificationUrl) {
+                // La cuenta existe y la sesion esta abierta: puede
+                // reintentar la verificacion desde su panel.
+                Nexorix.say(message,
+                    "Tu cuenta quedó creada, pero la verificación no pudo iniciar. "
+                    + "Te llevamos a tu panel para intentarlo de nuevo.", "error");
+                setTimeout(() => window.location.href = "/dashboard.html", 2500);
+                return;
+            }
+
+            // 4. Llevar a la persona a Didit
+            Nexorix.say(message, "Te llevamos a la verificación...", "ok");
+            window.location.href = kyc.data.verificationUrl;
+
+        } catch (error) {
+            console.error(error);
+            Nexorix.say(message,
+                "No hay conexión con Nexorix. Revisa tu internet e intenta de nuevo.", "error");
+            button.disabled = false;
+        }
+    });
+</script>
+
+</body>
+</html>

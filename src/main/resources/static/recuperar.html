@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Recuperar acceso</title>
+</head>
+<body>
+
+<div class="access">
+
+    <aside class="access-story on-dark">
+        <a class="brand" href="/"><span class="brand-mark"></span>Nexorix</a>
+        <h1>Recupera tu acceso</h1>
+        <p class="intro">
+            Para proteger tu dinero, confirmamos que eres tú de dos formas:
+            con un código en tu correo y verificando tu identidad.
+        </p>
+        <ol class="steps">
+            <li><div><strong>Código al correo</strong>Te enviamos 6 dígitos.</div></li>
+            <li><div><strong>Verifica tu identidad</strong>Con el mismo documento de tu cuenta y una selfie.</div></li>
+            <li><div><strong>Crea tus datos nuevos</strong>Una contraseña nueva, un PIN nuevo o ambos.</div></li>
+        </ol>
+    </aside>
+
+    <main class="access-form">
+        <div class="form-card">
+
+            <div class="stage-progress" aria-hidden="true">
+                <span id="bar1"></span><span id="bar2"></span><span id="bar3"></span>
+            </div>
+
+            <!-- 1. Usuario o correo -->
+            <form class="stage" id="stageIdentifier" novalidate>
+                <h2>¿Olvidaste tu contraseña o tu PIN?</h2>
+                <p class="lead">Escribe tu usuario o el correo de tu cuenta.</p>
+
+                <div class="field">
+                    <label for="identifier">Usuario o correo</label>
+                    <input id="identifier" autocomplete="username" required>
+                </div>
+
+                <button class="button full" type="submit" id="identifierButton">Enviar código</button>
+                <p class="below-form"><a href="/login.html">Volver a iniciar sesión</a></p>
+            </form>
+
+            <!-- 2. Codigo -->
+            <form class="stage" id="stageCode" hidden novalidate>
+                <h2>Revisa tu correo</h2>
+                <p class="lead" id="codeLead">
+                    Si los datos corresponden a una cuenta, enviamos un código de 6 dígitos.
+                    Vence en 15 minutos.
+                </p>
+
+                <div class="field">
+                    <label for="code">Código</label>
+                    <input class="pin-big" id="code" inputmode="numeric" maxlength="6"
+                           autocomplete="one-time-code" required>
+                </div>
+
+                <button class="button full" type="submit" id="codeButton">Continuar</button>
+                <p class="below-form">
+                    <button class="link-button" type="button" id="resendButton">No me llegó, enviar otro código</button>
+                </p>
+            </form>
+
+            <!-- 3. Identidad -->
+            <section class="stage result" id="stageIdentity" hidden>
+                <div class="face" id="faceIcon"></div>
+                <h2>Verifica tu identidad</h2>
+                <p class="lead">
+                    Fotografía el mismo documento con el que creaste tu cuenta y toma
+                    una selfie. Toma unos 2 minutos.
+                </p>
+                <button class="button full" type="button" id="identityButton">Verificar mi identidad</button>
+            </section>
+
+            <!-- 3b. Esperando a Didit -->
+            <section class="stage result" id="stageWaiting" hidden>
+                <div class="badge" id="waitingBadge"></div>
+                <h2>Confirmando tu identidad</h2>
+                <p class="lead">Didit nos está enviando el resultado. Esto suele tardar unos segundos.</p>
+            </section>
+
+            <!-- 4. Datos nuevos -->
+            <form class="stage" id="stageReset" hidden novalidate>
+                <h2>Crea tus datos nuevos</h2>
+                <p class="lead">Llena lo que quieras cambiar y deja en blanco lo demás.</p>
+
+                <div class="field">
+                    <label for="newPassword">Contraseña nueva</label>
+                    <input id="newPassword" type="password" autocomplete="new-password">
+                </div>
+                <ul class="rules" id="passwordRules">
+                    <li data-rule="length">10 caracteres o más</li>
+                    <li data-rule="upper">Una mayúscula</li>
+                    <li data-rule="lower">Una minúscula</li>
+                    <li data-rule="digit">Un número</li>
+                    <li data-rule="special">Un carácter especial (!@#$%*?)</li>
+                    <li data-rule="nospace">Sin espacios</li>
+                </ul>
+                <div class="field">
+                    <label for="newPasswordConfirm">Repite la contraseña nueva</label>
+                    <input id="newPasswordConfirm" type="password" autocomplete="new-password">
+                </div>
+                <label class="reveal">
+                    <input type="checkbox" data-reveal="newPassword,newPasswordConfirm">
+                    Mostrar contraseña
+                </label>
+
+                <div id="pinSection">
+                    <div class="row">
+                        <div class="field">
+                            <label for="newPin">PIN nuevo</label>
+                            <input class="pin-big" id="newPin" type="password" inputmode="numeric"
+                                   maxlength="6" autocomplete="off">
+                        </div>
+                        <div class="field">
+                            <label for="newPinConfirm">Repítelo</label>
+                            <input class="pin-big" id="newPinConfirm" type="password" inputmode="numeric"
+                                   maxlength="6" autocomplete="off">
+                        </div>
+                    </div>
+                    <label class="reveal">
+                        <input type="checkbox" data-reveal="newPin,newPinConfirm">
+                        Mostrar PIN
+                    </label>
+                </div>
+
+                <button class="button full" type="submit" id="resetButton">Guardar cambios</button>
+            </form>
+
+            <!-- 5. Listo -->
+            <section class="stage result ok" id="stageDone" hidden>
+                <div class="badge" id="doneBadge"></div>
+                <h2>Listo, recuperaste tu acceso</h2>
+                <p class="lead">Ya puedes iniciar sesión con tus datos nuevos.</p>
+                <a class="button full" href="/login.html">Iniciar sesión</a>
+            </section>
+
+            <p class="notice" id="message" role="status" aria-live="polite"></p>
+        </div>
+    </main>
+</div>
+
+<script src="/nexorix.js"></script>
+<script>
+    const $ = (id) => document.getElementById(id);
+    const message = $("message");
+
+    const STAGES = ["stageIdentifier", "stageCode", "stageIdentity", "stageWaiting",
+        "stageReset", "stageDone"];
+    const STEP = { stageIdentifier: 1, stageCode: 1, stageIdentity: 2, stageWaiting: 2,
+        stageReset: 3, stageDone: 3 };
+
+    function show(stage) {
+        STAGES.forEach(id => $(id).hidden = id !== stage);
+        ["bar1", "bar2", "bar3"].forEach((id, i) => {
+            $(id).className = i < STEP[stage] ? "done" : "";
+        });
+        const focus = { stageIdentifier: "identifier", stageCode: "code", stageReset: "newPassword" }[stage];
+        if (focus) {
+            $(focus).focus();
+        }
+    }
+
+    /** Muestra el error y, si el servidor lo pide, vuelve al inicio. */
+    function fail(result, fallback) {
+        if (result.data && result.data.restart) {
+            show("stageIdentifier");
+        }
+        Nexorix.say(message, Nexorix.errorOf(result, fallback), "error");
+    }
+
+    // ------------------------------------------------------------
+    // Al abrir (o al volver de Didit)
+    // ------------------------------------------------------------
+
+    let polls = 0;
+
+    async function init() {
+        $("faceIcon").innerHTML = Nexorix.icon("face");
+        $("doneBadge").innerHTML = Nexorix.icon("check");
+        $("waitingBadge").innerHTML =
+            Nexorix.icon("spinner").replace('class="icon"', 'class="icon spinner"');
+
+        const state = await Nexorix.api("/api/recovery/state");
+
+        if (!state.ok || !state.data) {
+            show("stageIdentifier");
+            return;
+        }
+
+        applyState(state.data);
+    }
+
+    function applyState(data) {
+        switch (data.status) {
+            case "CODE_SENT":
+                show("stageCode");
+                return;
+            case "CODE_VERIFIED":
+                show("stageIdentity");
+                return;
+            case "IDENTITY_PENDING":
+                show("stageWaiting");
+                setTimeout(poll, 3000);
+                return;
+            case "IDENTITY_DECLINED":
+                show("stageIdentity");
+                Nexorix.say(message,
+                    "No pudimos confirmar tu identidad. Usa el mismo documento de tu cuenta, "
+                    + "con buena luz y completo en la foto, e intenta de nuevo.", "error");
+                return;
+            case "IDENTITY_APPROVED":
+                $("pinSection").hidden = !data.canSetPin;
+                Nexorix.say(message, "", "");
+                show("stageReset");
+                return;
+            default:
+                show("stageIdentifier");
+        }
+    }
+
+    async function poll() {
+        polls++;
+        const state = await Nexorix.api("/api/recovery/state");
+
+        if (!state.ok || !state.data) {
+            fail(state, "La solicitud ya no es válida. Empieza de nuevo.");
+            return;
+        }
+
+        if (state.data.status === "IDENTITY_PENDING") {
+            if (polls < 40) {
+                setTimeout(poll, 3000);
+            } else {
+                Nexorix.say(message,
+                    "El resultado está tardando. Recarga esta página en unos minutos.", "wait");
+            }
+            return;
+        }
+
+        applyState(state.data);
+    }
+
+    // ------------------------------------------------------------
+    // 1. Pedir el codigo
+    // ------------------------------------------------------------
+
+    async function sendCode() {
+        const identifier = $("identifier").value.trim();
+
+        if (!identifier) {
+            Nexorix.say(message, "Escribe tu usuario o tu correo.", "error");
+            show("stageIdentifier");
+            return;
+        }
+
+        $("identifierButton").disabled = true;
+        Nexorix.say(message, "Enviando...", "wait");
+
+        const result = await Nexorix.api("/api/recovery/start", {
+            method: "POST",
+            json: { identifier }
+        });
+
+        $("identifierButton").disabled = false;
+
+        if (!result.ok) {
+            fail(result, "No fue posible enviar el código.");
+            return;
+        }
+
+        Nexorix.say(message, "", "");
+        show("stageCode");
+    }
+
+    $("stageIdentifier").addEventListener("submit", (event) => {
+        event.preventDefault();
+        sendCode();
+    });
+
+    $("resendButton").addEventListener("click", () => {
+        Nexorix.say(message, "", "");
+        show("stageIdentifier");
+    });
+
+    // ------------------------------------------------------------
+    // 2. Revisar el codigo
+    // ------------------------------------------------------------
+
+    $("stageCode").addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const code = $("code").value.trim();
+        if (!/^\d{6}$/.test(code)) {
+            Nexorix.say(message, "El código tiene 6 dígitos.", "error");
+            return;
+        }
+
+        $("codeButton").disabled = true;
+
+        const result = await Nexorix.api("/api/recovery/code", {
+            method: "POST",
+            json: { code }
+        });
+
+        $("codeButton").disabled = false;
+        $("code").value = "";
+
+        if (!result.ok) {
+            fail(result, "Código incorrecto.");
+            return;
+        }
+
+        Nexorix.say(message, "", "");
+        show("stageIdentity");
+    });
+
+    // ------------------------------------------------------------
+    // 3. Identidad
+    // ------------------------------------------------------------
+
+    $("identityButton").addEventListener("click", async () => {
+        $("identityButton").disabled = true;
+        Nexorix.say(message, "Preparando la verificación...", "wait");
+
+        const result = await Nexorix.api("/api/recovery/identity/start", { method: "POST" });
+
+        if (result.ok && result.data && result.data.url) {
+            window.location.href = result.data.url;
+            return;
+        }
+
+        $("identityButton").disabled = false;
+        fail(result, "No fue posible iniciar la verificación.");
+    });
+
+    // ------------------------------------------------------------
+    // 4. Datos nuevos
+    // ------------------------------------------------------------
+
+    function passwordRules(password) {
+        return {
+            length: password.length >= 10 && password.length <= 72,
+            upper: /\p{Lu}/u.test(password),
+            lower: /\p{Ll}/u.test(password),
+            digit: /\d/.test(password),
+            special: /[^\p{L}\p{N}\s]/u.test(password),
+            nospace: password.length > 0 && !/\s/.test(password)
+        };
+    }
+
+    $("newPassword").addEventListener("input", (event) => {
+        const rules = passwordRules(event.target.value);
+        document.querySelectorAll("#passwordRules li").forEach(item => {
+            item.classList.toggle("ok", rules[item.dataset.rule]);
+        });
+    });
+
+    $("stageReset").addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const newPassword = $("newPassword").value;
+        const newPasswordConfirm = $("newPasswordConfirm").value;
+        const newPin = $("pinSection").hidden ? "" : $("newPin").value.trim();
+        const newPinConfirm = $("pinSection").hidden ? "" : $("newPinConfirm").value.trim();
+
+        if (!newPassword && !newPin) {
+            Nexorix.say(message, "Escribe una contraseña nueva, un PIN nuevo o ambos.", "error");
+            return;
+        }
+        if (newPassword) {
+            if (Object.values(passwordRules(newPassword)).includes(false)) {
+                Nexorix.say(message, "La contraseña nueva no cumple todas las reglas.", "error");
+                return;
+            }
+            if (newPassword !== newPasswordConfirm) {
+                Nexorix.say(message, "Las dos contraseñas no coinciden.", "error");
+                return;
+            }
+        }
+        if (newPin) {
+            if (!/^\d{6}$/.test(newPin)) {
+                Nexorix.say(message, "El PIN debe tener exactamente 6 dígitos.", "error");
+                return;
+            }
+            if (newPin !== newPinConfirm) {
+                Nexorix.say(message, "Los dos PIN no coinciden.", "error");
+                return;
+            }
+        }
+
+        $("resetButton").disabled = true;
+
+        const result = await Nexorix.api("/api/recovery/reset", {
+            method: "POST",
+            json: { newPassword, newPasswordConfirm, newPin, newPinConfirm }
+        });
+
+        $("resetButton").disabled = false;
+
+        if (!result.ok) {
+            fail(result, "No fue posible guardar los cambios.");
+            return;
+        }
+
+        Nexorix.say(message, "", "");
+        show("stageDone");
+    });
+
+    init();
+</script>
+
+</body>
+</html>

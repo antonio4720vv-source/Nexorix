@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Mi dinero</title>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-left">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark"></span>Nexorix</a>
+        <span id="navSlot"></span>
+    </div>
+    <div class="who">
+        <button class="text-button" type="button" id="privacyButton" aria-pressed="false">Ocultar<span class="long"> montos</span></button>
+        <span class="who-name" id="welcome"></span>
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <button class="button secondary small" id="logoutButton" type="button">Salir</button>
+    </div>
+</header>
+
+<main class="page">
+
+    <p class="notice" id="pageMessage" role="status" aria-live="polite"></p>
+
+    <!-- Verificacion de identidad (solo si falta) -->
+    <section id="kycBanner" hidden></section>
+
+    <!-- Acciones rapidas (computador) -->
+    <div class="quick-actions" id="quickActions" hidden>
+        <button class="button" type="button" data-open="movementSheet">Registrar movimiento</button>
+        <button class="button secondary" type="button" data-open="transferSheet">Transferencia entre mis cuentas</button>
+        <a class="button secondary" href="/importar.html">Importar extracto</a>
+        <button class="button secondary" type="button" data-open="accountSheet">Agregar cuenta</button>
+    </div>
+
+    <!-- Bienvenida: todavia no tiene cuentas -->
+    <section class="welcome" id="welcomePanel" hidden>
+        <h2>Empecemos por tus cuentas</h2>
+        <p>
+            Agrega las cuentas que tienes en tus bancos y billeteras. Luego registra tus
+            movimientos y Nexorix te mostrará cuánto dinero entró y salió de verdad.
+        </p>
+        <div class="actions">
+            <button class="button light" type="button" data-open="accountSheet">Agregar mi primera cuenta</button>
+            <button class="button" type="button" id="demoButton">Ver con datos de ejemplo</button>
+        </div>
+    </section>
+
+    <!-- Lo principal: el dinero real -->
+    <section class="truth" id="truthPanel" aria-labelledby="truthSentence">
+        <p class="truth-period">Tu dinero real</p>
+        <p class="sentence" id="truthSentence">Calculando...</p>
+        <p class="aside" id="truthAside"></p>
+
+        <div class="bars" id="bars" hidden>
+            <div>
+                <div class="bar-label">
+                    <span>Ingresos según tus movimientos</span>
+                    <strong class="amt" id="grossIncome"></strong>
+                </div>
+                <div class="bar" aria-hidden="true">
+                    <span class="seg-real" id="barIncomeReal"></span>
+                    <span class="seg-internal" id="barIncomeInternal"></span>
+                </div>
+            </div>
+            <div>
+                <div class="bar-label">
+                    <span>Gastos según tus movimientos</span>
+                    <strong class="amt" id="grossExpense"></strong>
+                </div>
+                <div class="bar" aria-hidden="true">
+                    <span class="seg-spend" id="barExpenseReal"></span>
+                    <span class="seg-internal" id="barExpenseInternal"></span>
+                </div>
+            </div>
+            <div class="legend">
+                <span><i class="seg-real"></i>Entró de verdad</span>
+                <span><i class="seg-spend"></i>Salió de verdad</span>
+                <span><i class="seg-internal"></i>Solo pasó entre tus cuentas</span>
+            </div>
+        </div>
+
+        <div class="pending-note" id="pendingNote" hidden></div>
+    </section>
+
+    <!-- Flujo del dinero (diagrama) -->
+    <section class="panel stack" id="flowPanel" aria-labelledby="flowTitle" hidden>
+        <div class="panel-head">
+            <h2 id="flowTitle">Cómo se movió tu dinero</h2>
+            <button class="text-button" type="button" id="askFlow"><span data-icon="ai" style="display:inline-flex;vertical-align:-4px"></span> Explícamelo</button>
+        </div>
+        <div class="flow-wrap" id="flowChart"></div>
+        <div class="flow-loop" id="flowLoop" hidden></div>
+    </section>
+
+    <div class="grid-2">
+        <section class="panel" aria-labelledby="accountsTitle">
+            <div class="panel-head">
+                <h2 id="accountsTitle">Mis cuentas</h2>
+                <span class="total amt" id="totalBalance"></span>
+            </div>
+            <div id="balanceSplit" hidden>
+                <div class="balance-bar" id="balanceBar" aria-hidden="true"></div>
+                <div class="balance-legend" id="balanceLegend"></div>
+            </div>
+            <div class="ledger" id="accounts"><div class="skeleton"></div><div class="skeleton"></div></div>
+        </section>
+
+        <section class="panel" aria-labelledby="pendingTitle">
+            <div class="panel-head">
+                <h2 id="pendingTitle">Por confirmar</h2>
+                <span class="count" id="pendingCount" hidden></span>
+            </div>
+            <div class="trace-list" id="suggestions"><div class="skeleton"></div></div>
+            <a class="text-button more-button" href="/traza.html" id="moreSuggestions" hidden>Ver todas en Trace</a>
+        </section>
+    </div>
+
+    <!-- Gastos reales por categoria -->
+    <section class="panel stack" aria-labelledby="categoriesTitle" id="categoriesPanel" hidden>
+        <div class="panel-head">
+            <h2 id="categoriesTitle">En qué se fue tu dinero</h2>
+            <span class="muted" style="font-size:.85rem">Sin contar transferencias entre tus cuentas</span>
+        </div>
+        <div class="categories" id="categories"></div>
+    </section>
+
+    <section class="panel stack" aria-labelledby="movementsTitle">
+        <div class="panel-head">
+            <h2 id="movementsTitle">Movimientos recientes</h2>
+        </div>
+        <div class="ledger" id="movements"><div class="skeleton"></div><div class="skeleton"></div></div>
+        <button class="text-button more-button" type="button" id="moreButton" hidden>Ver todos</button>
+    </section>
+
+    <section class="panel stack" aria-labelledby="matchesTitle">
+        <div class="panel-head">
+            <h2 id="matchesTitle">Transferencias entre tus cuentas</h2>
+            <a href="/traza.html#historial" style="font-size:.85rem">Ver historial</a>
+        </div>
+        <div class="trace-list" id="matches"></div>
+    </section>
+</main>
+
+<!-- Barra inferior (celular) -->
+<nav class="action-bar" id="actionBar" aria-label="Acciones" hidden>
+    <button type="button" data-open="movementSheet"><span class="dot in" data-icon="plus"></span>Movimiento</button>
+    <button type="button" data-open="transferSheet"><span class="dot moved" data-icon="moved"></span>Transferir</button>
+    <button type="button" data-href="/importar.html"><span class="dot" data-icon="upload" style="background:#eef3f1;color:var(--ink)"></span>Importar</button>
+    <button type="button" data-open="accountSheet"><span class="dot out" data-icon="wallet" style="background:#eef3f1;color:var(--ink)"></span>Cuenta</button>
+</nav>
+
+<!-- Ventana: agregar cuenta -->
+<dialog class="sheet" id="accountSheet" aria-labelledby="accountSheetTitle">
+    <form class="sheet-body" id="accountForm" novalidate>
+        <div class="sheet-head">
+            <h2 id="accountSheetTitle">Agregar cuenta</h2>
+            <button class="close-button" type="button" data-close aria-label="Cerrar">&times;</button>
+        </div>
+        <p class="lead">Una cuenta o billetera que ya tienes en tu banco.</p>
+
+        <div class="field">
+            <label for="accountBank">Banco o billetera</label>
+            <input id="accountBank" list="banks" maxlength="100" autocomplete="off" required>
+            <datalist id="banks">
+                <option value="Bancolombia"><option value="Davivienda"><option value="Nequi">
+                <option value="Daviplata"><option value="Nu"><option value="Lulo Bank">
+                <option value="BBVA"><option value="Banco de Bogotá"><option value="Banco Popular">
+                <option value="Scotiabank Colpatria"><option value="Banco Caja Social"><option value="Movii">
+            </datalist>
+        </div>
+        <div class="field">
+            <label for="accountName">Nombre para reconocerla</label>
+            <input id="accountName" maxlength="100" placeholder="Ej: Nequi personal" required>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label for="accountType">Tipo</label>
+                <select id="accountType">
+                    <option value="AHORROS">Ahorros</option>
+                    <option value="CORRIENTE">Corriente</option>
+                    <option value="BILLETERA">Billetera digital</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="accountBalance">Saldo actual</label>
+                <input id="accountBalance" inputmode="numeric" placeholder="0" required>
+            </div>
+        </div>
+        <p class="money-preview" id="accountBalancePreview"></p>
+
+        <div class="sheet-actions">
+            <button class="button" type="submit" id="accountSubmit">Guardar cuenta</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Ventana: registrar movimiento -->
+<dialog class="sheet" id="movementSheet" aria-labelledby="movementSheetTitle">
+    <form class="sheet-body" id="movementForm" novalidate>
+        <div class="sheet-head">
+            <h2 id="movementSheetTitle">Registrar movimiento</h2>
+            <button class="close-button" type="button" data-close aria-label="Cerrar">&times;</button>
+        </div>
+        <p class="lead">Un ingreso o un gasto que ya ocurrió en una de tus cuentas.</p>
+
+        <div class="segmented" role="radiogroup" aria-label="Tipo de movimiento">
+            <input type="radio" name="movementType" id="typeIn" value="INGRESO" checked>
+            <label class="in" for="typeIn">Entró dinero</label>
+            <input type="radio" name="movementType" id="typeOut" value="EGRESO">
+            <label class="out" for="typeOut">Salió dinero</label>
+        </div>
+
+        <div class="field">
+            <label for="movementAccount">Cuenta</label>
+            <select id="movementAccount"></select>
+        </div>
+        <div class="field">
+            <label for="movementAmount">Monto</label>
+            <input id="movementAmount" inputmode="numeric" placeholder="0" required>
+        </div>
+        <p class="money-preview" id="movementAmountPreview"></p>
+        <div class="field">
+            <label for="movementDescription">Descripción</label>
+            <input id="movementDescription" maxlength="255" placeholder="Ej: Salario, Mercado, Arriendo" required>
+        </div>
+        <div class="field">
+            <label for="movementReference">Referencia (opcional)</label>
+            <input id="movementReference" maxlength="150" placeholder="La del comprobante, si la tienes">
+        </div>
+
+        <div class="sheet-actions">
+            <button class="button" type="submit" id="movementSubmit">Guardar movimiento</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Ventana: transferencia entre mis cuentas -->
+<dialog class="sheet" id="transferSheet" aria-labelledby="transferSheetTitle">
+    <form class="sheet-body" id="transferForm" novalidate>
+        <div class="sheet-head">
+            <h2 id="transferSheetTitle">Transferencia entre mis cuentas</h2>
+            <button class="close-button" type="button" data-close aria-label="Cerrar">&times;</button>
+        </div>
+        <p class="lead">
+            Registra un envío que ya hiciste de una cuenta tuya a otra. Nexorix no mueve
+            dinero: solo lo anota para que Trace lo reconozca.
+        </p>
+
+        <div class="row">
+            <div class="field">
+                <label for="transferFrom">Desde</label>
+                <select id="transferFrom"></select>
+            </div>
+            <div class="field">
+                <label for="transferTo">Hacia</label>
+                <select id="transferTo"></select>
+            </div>
+        </div>
+        <div class="field">
+            <label for="transferAmount">Monto</label>
+            <input id="transferAmount" inputmode="numeric" placeholder="0" required>
+        </div>
+        <p class="money-preview" id="transferAmountPreview"></p>
+        <div class="field">
+            <label for="transferNote">Nota (opcional)</label>
+            <input id="transferNote" maxlength="200" placeholder="Ej: Para el arriendo">
+        </div>
+
+        <div class="sheet-actions">
+            <button class="button" type="submit" id="transferSubmit">Registrar transferencia</button>
+        </div>
+    </form>
+</dialog>
+
+<script src="/nexorix.js"></script>
+<script src="/trace-ui.js"></script>
+<script src="/agente.js"></script>
+<script>
+    const $ = (id) => document.getElementById(id);
+    const esc = Nexorix.esc;
+    const money = Nexorix.money;
+    const pageMessage = $("pageMessage");
+
+    const MOVEMENTS_SHOWN = 8;
+    let accounts = [];
+    let allMovements = [];
+    let showAllMovements = false;
+    let internalPortions = {};
+    let suggestionList = [];
+
+    /** Parte de un movimiento que fue transferencia interna (confirmada en Trace). */
+    function internalOf(t) {
+        return Math.min(Number(internalPortions[t.id] || 0), Number(t.amount));
+    }
+
+    /** Llama a la API; si la sesion vencio, vuelve al login. */
+    async function api(path, options) {
+        const result = await Nexorix.api(path, options);
+        if (result.status === 401) {
+            window.location.href = "/login.html?expirada=1";
+            throw new Error("Sesion vencida");
+        }
+        return result;
+    }
+
+    const amt = (value) => `<span class="amt">${money(value)}</span>`;
+
+    // ============================================================
+    // OCULTAR MONTOS
+    // ============================================================
+
+    function setPrivacy(on) {
+        document.body.classList.toggle("privacy", on);
+        $("privacyButton").innerHTML = (on ? "Mostrar" : "Ocultar") + '<span class="long"> montos</span>';
+        $("privacyButton").setAttribute("aria-label", on ? "Mostrar montos" : "Ocultar montos");
+        $("privacyButton").setAttribute("aria-pressed", String(on));
+        try { localStorage.setItem("nexorix.privacy", on ? "1" : "0"); } catch (e) { /* sin almacenamiento */ }
+    }
+
+    $("privacyButton").addEventListener("click", () =>
+        setPrivacy(!document.body.classList.contains("privacy")));
+
+    // ============================================================
+    // VENTANAS
+    // ============================================================
+
+    function openSheet(id) {
+        if (id !== "accountSheet" && accounts.length === 0) {
+            Nexorix.toast("Primero agrega una cuenta.", "error");
+            id = "accountSheet";
+        }
+        if (id === "transferSheet" && accounts.length < 2) {
+            Nexorix.toast("Necesitas al menos dos cuentas para registrar una transferencia.", "error");
+            return;
+        }
+        fillAccountSelects();
+        const sheet = $(id);
+        sheet.querySelector("form").reset();
+        sheet.querySelectorAll(".money-preview").forEach(p => p.textContent = "");
+        if (id === "transferSheet" && accounts.length > 1) {
+            $("transferTo").selectedIndex = 1;
+        }
+        sheet.showModal();
+        const first = sheet.querySelector("input:not([type=radio]), select");
+        if (first) first.focus();
+    }
+
+    document.querySelectorAll("[data-href]").forEach(button =>
+        button.addEventListener("click", () => window.location.href = button.dataset.href));
+
+    document.querySelectorAll("[data-open]").forEach(button =>
+        button.addEventListener("click", () => openSheet(button.dataset.open)));
+
+    document.querySelectorAll("dialog.sheet").forEach(sheet => {
+        sheet.querySelector("[data-close]").addEventListener("click", () => sheet.close());
+        // Tocar fuera de la ventana la cierra.
+        sheet.addEventListener("click", (event) => { if (event.target === sheet) sheet.close(); });
+    });
+
+    function fillAccountSelects() {
+        // Si el nombre ya dice el banco, no lo repetimos.
+        const options = accounts.map(a => {
+            const label = a.name.toLowerCase().includes(String(a.bank).toLowerCase())
+                ? a.name : `${a.name} (${a.bank})`;
+            return `<option value="${a.id}">${esc(label)}</option>`;
+        }).join("");
+        ["movementAccount", "transferFrom", "transferTo"].forEach(id => $(id).innerHTML = options);
+    }
+
+    Nexorix.moneyInput($("accountBalance"), $("accountBalancePreview"));
+    Nexorix.moneyInput($("movementAmount"), $("movementAmountPreview"));
+    Nexorix.moneyInput($("transferAmount"), $("transferAmountPreview"));
+
+    async function submitForm(button, path, params, okText, sheetId) {
+        button.disabled = true;
+        try {
+            const result = await api(path + "?" + new URLSearchParams(params), { method: "POST" });
+            if (!result.ok) {
+                Nexorix.toast(Nexorix.errorOf(result,
+                    result.status === 403 ? "No tienes permiso sobre esa cuenta."
+                        : "No fue posible guardar. Revisa los datos."), "error");
+                return;
+            }
+            $(sheetId).close();
+            Nexorix.toast(okText);
+            await loadMoney();
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    $("accountForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const balance = Nexorix.parseMoney($("accountBalance").value || "0");
+        if (!$("accountBank").value.trim() || !$("accountName").value.trim()) {
+            Nexorix.toast("Escribe el banco y un nombre para la cuenta.", "error");
+            return;
+        }
+        submitForm($("accountSubmit"), "/api/accounts", {
+            name: $("accountName").value.trim(),
+            bank: $("accountBank").value.trim(),
+            type: $("accountType").value,
+            balance: isNaN(balance) ? 0 : balance
+        }, "Cuenta agregada.", "accountSheet");
+    });
+
+    $("movementForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const amount = Nexorix.parseMoney($("movementAmount").value);
+        if (isNaN(amount) || amount <= 0) {
+            Nexorix.toast("Escribe un monto mayor que cero.", "error");
+            return;
+        }
+        if (!$("movementDescription").value.trim()) {
+            Nexorix.toast("Escribe una descripción.", "error");
+            return;
+        }
+        const params = {
+            amount,
+            type: document.querySelector("input[name=movementType]:checked").value,
+            description: $("movementDescription").value.trim(),
+            accountId: $("movementAccount").value
+        };
+        if ($("movementReference").value.trim()) {
+            params.reference = $("movementReference").value.trim();
+        }
+        submitForm($("movementSubmit"), "/api/transactions", params,
+            "Movimiento registrado.", "movementSheet");
+    });
+
+    $("transferForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const amount = Nexorix.parseMoney($("transferAmount").value);
+        if (isNaN(amount) || amount <= 0) {
+            Nexorix.toast("Escribe un monto mayor que cero.", "error");
+            return;
+        }
+        if ($("transferFrom").value === $("transferTo").value) {
+            Nexorix.toast("Elige dos cuentas diferentes.", "error");
+            return;
+        }
+        const params = {
+            fromAccountId: $("transferFrom").value,
+            toAccountId: $("transferTo").value,
+            amount
+        };
+        if ($("transferNote").value.trim()) {
+            params.description = $("transferNote").value.trim();
+        }
+        submitForm($("transferSubmit"), "/api/transactions/transfer", params,
+            "Transferencia registrada. Confírmala en \"Por confirmar\".", "transferSheet");
+    });
+
+    // ============================================================
+    // DATOS DE EJEMPLO (para mostrar el demo en segundos)
+    // ============================================================
+
+    $("demoButton").addEventListener("click", async () => {
+        const button = $("demoButton");
+        button.disabled = true;
+        Nexorix.toast("Creando datos de ejemplo...");
+
+        try {
+            const create = async (path, params) => {
+                const result = await api(path + "?" + new URLSearchParams(params), { method: "POST" });
+                if (!result.ok) {
+                    throw new Error(Nexorix.errorOf(result, "No fue posible crear el ejemplo."));
+                }
+                return result.data;
+            };
+
+            const nequi = await create("/api/accounts",
+                { name: "Nequi (ejemplo)", bank: "Nequi", type: "BILLETERA", balance: 3000000 });
+            const davi = await create("/api/accounts",
+                { name: "Davivienda (ejemplo)", bank: "Davivienda", type: "AHORROS", balance: 0 });
+            const nu = await create("/api/accounts",
+                { name: "Nu (ejemplo)", bank: "Nu", type: "AHORROS", balance: 0 });
+
+            await create("/api/transactions/transfer",
+                { fromAccountId: nequi.id, toAccountId: davi.id, amount: 1000000 });
+            await create("/api/transactions/transfer",
+                { fromAccountId: nequi.id, toAccountId: nu.id, amount: 1000000 });
+            await create("/api/transactions",
+                { accountId: davi.id, type: "INGRESO", amount: 3000000, description: "Salario" });
+            await create("/api/transactions",
+                { accountId: nu.id, type: "EGRESO", amount: 500000, description: "Mercado" });
+
+            Nexorix.toast("Listo. Ahora confirma las transferencias en \"Por confirmar\".");
+            await loadMoney();
+        } catch (error) {
+            Nexorix.toast(error.message, "error");
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    // ============================================================
+    // IDENTIDAD
+    // ============================================================
+
+    async function renderKyc(user) {
+        const banner = $("kycBanner");
+
+        if (user.kycStatus === "VERIFIED") {
+            banner.hidden = true;
+            return;
+        }
+
+        const status = await api("/api/kyc/status");
+        const kyc = status.data;
+
+        banner.hidden = false;
+        banner.className = "kyc";
+
+        const text = (title, detail) => `
+            <div class="kyc-text">
+                <span class="kyc-icon">${Nexorix.icon("shield")}</span>
+                <div><h2>${title}</h2><p>${detail}</p></div>
+            </div>`;
+
+        if (kyc && kyc.status === "IN_PROGRESS" && kyc.verificationUrl) {
+            banner.innerHTML = text("Tu verificación de identidad está pendiente",
+                    "Termínala para usar Nexorix con todas sus funciones.")
+                + `<a class="button" href="${esc(kyc.verificationUrl)}">Continuar verificación</a>`;
+            return;
+        }
+
+        if (kyc && kyc.status === "MANUAL_REVIEW") {
+            banner.innerHTML = text("Tu verificación está en revisión",
+                "Un analista está revisando tus datos. No tienes que hacer nada.");
+            return;
+        }
+
+        const rejected = kyc && kyc.status === "REJECTED";
+        banner.innerHTML = text(rejected ? "No pudimos verificar tu identidad" : "Verifica tu identidad",
+                rejected ? "Inténtalo de nuevo con buena luz y el documento completo en la foto."
+                    : "Toma unos 2 minutos con tu documento y la cámara.")
+            + `<form id="kycForm">
+                   <div class="field">
+                       <label for="kycType">Documento</label>
+                       <select id="kycType">
+                           <option value="CC">Cédula (CC)</option>
+                           <option value="CE">Cédula de extranjería (CE)</option>
+                           <option value="PP">Pasaporte</option>
+                       </select>
+                   </div>
+                   <div class="field">
+                       <label for="kycNumber">Número</label>
+                       <input id="kycNumber" inputmode="numeric" required>
+                   </div>
+                   <button class="button" type="submit" id="kycButton">Verificar identidad</button>
+               </form>`;
+
+        $("kycForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const number = $("kycNumber").value.trim();
+            if (!number) {
+                Nexorix.toast("Escribe el número de tu documento.", "error");
+                return;
+            }
+            $("kycButton").disabled = true;
+            const result = await api("/api/kyc/start?" + new URLSearchParams({
+                documentType: $("kycType").value, documentNumber: number }), { method: "POST" });
+            if (result.ok && result.data && result.data.verificationUrl) {
+                window.location.href = result.data.verificationUrl;
+                return;
+            }
+            Nexorix.toast(Nexorix.errorOf(result, "No fue posible iniciar la verificación."), "error");
+            $("kycButton").disabled = false;
+        });
+    }
+
+    // ============================================================
+    // DINERO REAL
+    // ============================================================
+
+    function percent(part, total) {
+        if (!total || total <= 0) return "0%";
+        return Math.max(0, Math.min(100, (part / total) * 100)) + "%";
+    }
+
+    function renderTruth(flow) {
+        const realIncome = Number(flow.realIncome);
+        const realExpense = Number(flow.realExpense);
+        const internal = Number(flow.internalTransfers);
+        const grossIncome = Number(flow.grossIncome);
+        const grossExpense = Number(flow.grossExpense);
+
+        if (allMovements.length === 0) {
+            $("truthSentence").textContent = "Aún no tienes movimientos.";
+            $("truthAside").textContent =
+                "Registra un ingreso, un gasto o una transferencia entre tus cuentas para ver tu dinero real.";
+            $("bars").hidden = true;
+            $("pendingNote").hidden = true;
+            return;
+        }
+
+        $("truthSentence").innerHTML =
+            `Entraron <span class="in amt">${money(realIncome)}</span> `
+            + `y salieron <span class="out amt">${money(realExpense)}</span>.`;
+
+        $("truthAside").innerHTML = internal > 0
+            ? `Además moviste <b class="amt">${money(internal)}</b> entre tus propias cuentas. `
+              + `Eso no es ingreso ni gasto, así que no lo contamos.`
+            : "Todavía no has confirmado transferencias entre tus cuentas.";
+
+        const scale = Math.max(grossIncome, grossExpense);
+        $("grossIncome").textContent = money(grossIncome);
+        $("grossExpense").textContent = money(grossExpense);
+        $("bars").hidden = false;
+
+        requestAnimationFrame(() => {
+            $("barIncomeReal").style.width = percent(realIncome, scale);
+            $("barIncomeInternal").style.width = percent(grossIncome - realIncome, scale);
+            $("barExpenseReal").style.width = percent(realExpense, scale);
+            $("barExpenseInternal").style.width = percent(grossExpense - realExpense, scale);
+        });
+
+        const note = $("pendingNote");
+        if (flow.pendingSuggestions > 0) {
+            const n = flow.pendingSuggestions;
+            note.innerHTML = Nexorix.icon("info") + `<span>
+                Encontramos ${n} ${n === 1 ? "movimiento" : "movimientos"} por
+                <strong class="amt">${money(flow.pendingAmount)}</strong> que parecen transferencias
+                entre tus cuentas. Confírmalos en "Por confirmar" para que estos números sean exactos.</span>`;
+            note.hidden = false;
+        } else {
+            note.hidden = true;
+        }
+    }
+
+    // ============================================================
+    // LISTAS
+    // ============================================================
+
+    function bankChip(bank) {
+        return `<span class="chip" style="background:${Nexorix.bankColor(bank)}">
+                    ${esc(String(bank || "?").charAt(0).toUpperCase())}</span>`;
+    }
+
+    function renderAccounts(data) {
+        $("totalBalance").textContent = money(data.totalBalance);
+
+        if (accounts.length === 0) {
+            $("accounts").innerHTML = '<p class="empty">Todavía no tienes cuentas registradas.</p>';
+            return;
+        }
+
+        $("accounts").innerHTML = accounts.map(account => `
+            <div class="ledger-row">
+                ${bankChip(account.bank)}
+                <div>
+                    <div class="title">${esc(account.name)}</div>
+                    <div class="meta">${esc(account.bank)}</div>
+                </div>
+                <div class="amount">${amt(account.balance)}</div>
+            </div>`).join("");
+    }
+
+    function renderSuggestions(suggestions) {
+        suggestionList = suggestions || [];
+        const count = $("pendingCount");
+
+        if (suggestionList.length === 0) {
+            count.hidden = true;
+            $("moreSuggestions").hidden = true;
+            $("suggestions").innerHTML = '<p class="empty">Todo al día. No hay movimientos por confirmar.</p>';
+            return;
+        }
+
+        count.hidden = false;
+        count.textContent = suggestionList.length;
+        $("suggestions").innerHTML = suggestionList.slice(0, 3).map(s => NexorixTrace.card(s)).join("");
+        $("moreSuggestions").hidden = suggestionList.length <= 3;
+        $("moreSuggestions").textContent = `Ver las ${suggestionList.length} en Trace`;
+        NexorixTrace.bind($("suggestions"), suggestionList, loadMoney);
+    }
+
+    function renderMovements() {
+        if (allMovements.length === 0) {
+            $("movements").innerHTML = '<p class="empty">Todavía no tienes movimientos.</p>';
+            $("moreButton").hidden = true;
+            return;
+        }
+
+        const list = showAllMovements ? allMovements : allMovements.slice(0, MOVEMENTS_SHOWN);
+
+        $("movements").innerHTML = list.map(t => {
+            const internal = internalOf(t) > 0;
+            const isIncome = t.type === "INGRESO";
+            const kind = internal ? "moved" : (isIncome ? "in" : "out");
+            const sign = isIncome ? "+" : "−";
+            return `
+                <div class="ledger-row">
+                    <span class="dot ${kind}">${Nexorix.icon(internal ? "moved" : kind)}</span>
+                    <div>
+                        <div class="title">
+                            ${esc(t.description)}
+                            ${internal ? '<span class="tag">Entre tus cuentas</span>' : ""}
+                        </div>
+                        <div class="meta">
+                            ${esc(t.bank)}, ${Nexorix.date(t.transactionDate)}
+                            ${!internal && t.categoryLabel ? `<span class="tag neutral">${esc(t.categoryLabel)}</span>` : ""}
+                            ${t.source === "IMPORT" ? '<span class="tag neutral">Importado</span>' : ""}
+                        </div>
+                    </div>
+                    <div class="amount ${kind}">${sign} ${amt(t.amount)}</div>
+                </div>`;
+        }).join("");
+
+        const hidden = allMovements.length - MOVEMENTS_SHOWN;
+        $("moreButton").hidden = hidden <= 0;
+        $("moreButton").textContent = showAllMovements ? "Ver menos" : `Ver todos (${allMovements.length})`;
+    }
+
+    $("moreButton").addEventListener("click", () => {
+        showAllMovements = !showAllMovements;
+        renderMovements();
+    });
+
+    /** Gastos reales (sin transferencias internas) agrupados por categoria. */
+    function renderCategories() {
+        const totals = new Map();
+        allMovements
+            .filter(t => t.type === "EGRESO" && Number(t.amount) - internalOf(t) > 0)
+            .forEach(t => {
+                const label = t.categoryLabel || "Otros gastos";
+                totals.set(label, (totals.get(label) || 0) + Number(t.amount) - internalOf(t));
+            });
+
+        if (totals.size === 0) {
+            $("categoriesPanel").hidden = true;
+            return;
+        }
+
+        let list = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+        if (list.length > 6) {
+            const rest = list.slice(5).reduce((sum, item) => sum + item[1], 0);
+            list = list.slice(0, 5).concat([["Lo demás", rest]]);
+        }
+        const max = list[0][1];
+        const total = list.reduce((sum, item) => sum + item[1], 0);
+
+        $("categories").innerHTML = list.map(([label, value]) => `
+            <div class="category-row">
+                <div class="category-head">
+                    <span>${esc(label)}</span>
+                    <span><strong class="amt">${money(value)}</strong>
+                        <span class="muted">${Math.round(value / total * 100)}%</span></span>
+                </div>
+                <div class="category-bar"><span style="width:${(value / max * 100).toFixed(1)}%"></span></div>
+            </div>`).join("");
+
+        $("categoriesPanel").hidden = false;
+    }
+
+    function renderMatches(history) {
+        const active = (history || []).filter(g => g.active).slice(0, 3);
+        if (active.length === 0) {
+            $("matches").innerHTML =
+                '<p class="empty">Cuando confirmes una transferencia entre tus cuentas, aparecerá aquí.</p>';
+            return;
+        }
+        $("matches").innerHTML = active.map(g => NexorixTrace.card(g, { history: true })).join("");
+        NexorixTrace.bind($("matches"), [], loadMoney);
+    }
+
+    // ============================================================
+    // SALDO POR BANCO
+    // ============================================================
+
+    function renderBalanceSplit(total) {
+        const byBank = new Map();
+        accounts.forEach(a => byBank.set(a.bank, (byBank.get(a.bank) || 0) + Math.max(0, Number(a.balance))));
+        const sum = [...byBank.values()].reduce((x, y) => x + y, 0);
+        if (byBank.size < 2 || sum <= 0) {
+            $("balanceSplit").hidden = true;
+            return;
+        }
+        const list = [...byBank.entries()].sort((a, b) => b[1] - a[1]);
+        $("balanceBar").innerHTML = list.map(([bank, value]) =>
+            `<span title="${esc(bank)}" style="width:${(value / sum * 100).toFixed(2)}%;background:${Nexorix.bankColor(bank)}"></span>`).join("");
+        $("balanceLegend").innerHTML = list.map(([bank, value]) =>
+            `<span><i style="background:${Nexorix.bankColor(bank)}"></i>${esc(bank)} ${Math.round(value / sum * 100)}%</span>`).join("");
+        $("balanceSplit").hidden = false;
+    }
+
+    // ============================================================
+    // FLUJO DEL DINERO
+    // De donde vino el dinero real -> tus cuentas -> en que se fue.
+    // ============================================================
+
+    const FLOW_COLORS = { in: ["#0e8a7a", "#2fae96", "#5ec9b2", "#8fdcc9"], out: ["#d0384f", "#e35a6e", "#ef8090", "#c98a1b", "#b06a12", "#8d6e63"] };
+
+    function groupReal(type, max) {
+        const totals = new Map();
+        allMovements.filter(t => t.type === type).forEach(t => {
+            const real = Number(t.amount) - internalOf(t);
+            if (real <= 0) return;
+            const label = t.categoryLabel || (type === "INGRESO" ? "Otros ingresos" : "Otros gastos");
+            totals.set(label, (totals.get(label) || 0) + real);
+        });
+        let list = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+        if (list.length > max) {
+            const rest = list.slice(max - 1).reduce((x, y) => x + y[1], 0);
+            list = list.slice(0, max - 1).concat([["Lo demás", rest]]);
+        }
+        return list;
+    }
+
+    let lastFlow = null;
+
+    function renderFlow(flow) {
+        lastFlow = flow;
+        const income = groupReal("INGRESO", 4);
+        const expense = groupReal("EGRESO", 6);
+        const totalIn = income.reduce((x, y) => x + y[1], 0);
+        const totalOut = expense.reduce((x, y) => x + y[1], 0);
+        if (totalIn + totalOut <= 0) {
+            $("flowPanel").hidden = true;
+            return;
+        }
+        // Equilibrar: si salio mas de lo que entro, la diferencia salio de lo que ya tenias.
+        const sources = income.map(([l, v], i) => ({ label: l, value: v, color: FLOW_COLORS.in[i % 4] }));
+        const uses = expense.map(([l, v], i) => ({ label: l, value: v, color: FLOW_COLORS.out[i % 6] }));
+        if (totalOut > totalIn) sources.push({ label: "De lo que ya tenías", value: totalOut - totalIn, color: "#9aa9ab" });
+        if (totalIn > totalOut) uses.push({ label: "Te quedó (ahorro)", value: totalIn - totalOut, color: "#6a5ae0" });
+
+        $("flowPanel").hidden = false;   // visible antes de medir el ancho
+        const box = $("flowChart");
+        box.innerHTML = box.clientWidth < 560 ? flowMobile(sources, uses) : flowSvg(sources, uses);
+
+        const internal = Number(flow.internalTransfers);
+        $("flowLoop").hidden = internal <= 0;
+        $("flowLoop").innerHTML = Nexorix.icon("moved") + `<span>Además, <strong class="amt">${money(internal)}</strong>
+            solo se movieron entre tus propias cuentas. Trace los separó: no son ingreso ni gasto.</span>`;
+    }
+
+    function flowSvg(sources, uses) {
+        const W = 860, PAD = 10, BAR = 12, LABEL = 36;
+        const total = sources.reduce((x, s) => x + s.value, 0);
+        const scale = 300 / total;
+        const xL = 200, xM = 404, xR = 608;
+
+        // Cada nodo ocupa al menos LABEL px de alto para que los textos no se monten.
+        const slots = (list) => list.reduce((x, n) => x + Math.max(LABEL, Math.max(4, n.value * scale)) + PAD, -PAD);
+        const H = Math.max(240, Math.max(slots(sources), slots(uses)) + 40);
+
+        const place = (list) => {
+            let y = (H - slots(list)) / 2;
+            return list.map(n => {
+                const h = Math.max(4, n.value * scale);
+                const slot = Math.max(LABEL, h);
+                const node = { ...n, y: y + (slot - h) / 2, h };
+                y += slot + PAD;
+                return node;
+            });
+        };
+        const left = place(sources), right = place(uses);
+        const midH = left.reduce((x, n) => x + n.h, 0);
+        const midTop = (H - midH) / 2;
+
+        const band = (x0, y0, h0, x1, y1, h1, color, delay) => {
+            const c = (x0 + x1) / 2;
+            return `<path class="band grow" style="animation-delay:${delay}s" fill="${color}" d="M${x0},${y0} C${c},${y0} ${c},${y1} ${x1},${y1}
+                L${x1},${y1 + h1} C${c},${y1 + h1} ${c},${y0 + h0} ${x0},${y0 + h0} Z"></path>`;
+        };
+
+        let svg = `<svg class="flow-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagrama del flujo real de tu dinero">`;
+        let yMidIn = midTop;
+        left.forEach((n, i) => {
+            svg += band(xL + BAR, n.y, n.h, xM, yMidIn, n.h, n.color, i * .08);
+            yMidIn += n.h;
+        });
+        let yMidOut = midTop;
+        right.forEach((n, i) => {
+            const h = n.h * (midH / right.reduce((x, r) => x + r.h, 0));
+            svg += band(xM + BAR, yMidOut, h, xR, n.y, n.h, n.color, .3 + i * .08);
+            yMidOut += h;
+        });
+        left.forEach(n => {
+            svg += `<rect x="${xL}" y="${n.y}" width="${BAR}" height="${n.h}" rx="3" fill="${n.color}"/>
+                <text x="${xL - 10}" y="${n.y + n.h / 2 - 2}" text-anchor="end">${esc(n.label)}</text>
+                <text class="value amt" x="${xL - 10}" y="${n.y + n.h / 2 + 14}" text-anchor="end">${esc(money(n.value))}</text>`;
+        });
+        right.forEach(n => {
+            svg += `<rect x="${xR}" y="${n.y}" width="${BAR}" height="${n.h}" rx="3" fill="${n.color}"/>
+                <text x="${xR + BAR + 10}" y="${n.y + n.h / 2 - 2}">${esc(n.label)}</text>
+                <text class="value amt" x="${xR + BAR + 10}" y="${n.y + n.h / 2 + 14}">${esc(money(n.value))}</text>`;
+        });
+        svg += `<rect x="${xM}" y="${midTop}" width="${BAR}" height="${midH}" rx="3" fill="#0f2a2e"/>
+            <text class="small" x="${xM + BAR / 2}" y="${Math.max(12, midTop - 8)}" text-anchor="middle">Tus cuentas</text>`;
+        return svg + "</svg>";
+    }
+
+    function flowMobile(sources, uses) {
+        const total = sources.reduce((x, s) => x + s.value, 0);
+        const rows = (list) => list.map(n => `
+            <div class="category-row">
+                <div class="category-head"><span>${esc(n.label)}</span><strong class="amt">${money(n.value)}</strong></div>
+                <div class="category-bar"><span style="width:${(n.value / total * 100).toFixed(1)}%;background:${n.color}"></span></div>
+            </div>`).join("");
+        return `<div class="flow-mobile">
+            <div><h3>De dónde vino</h3>${rows(sources)}</div>
+            <div class="hub">↓ Tus cuentas ↓</div>
+            <div><h3>A dónde fue</h3>${rows(uses)}</div></div>`;
+    }
+
+    // ============================================================
+    // CARGA
+    // ============================================================
+
+    async function loadMoney() {
+        const [dashboard, suggestions, history] = await Promise.all([
+            api("/api/dashboard"),
+            api("/api/trace/suggestions"),
+            api("/api/trace/history")
+        ]);
+
+        if (!dashboard.ok) {
+            Nexorix.say(pageMessage, "No fue posible cargar tu información. Recarga la página.", "error");
+            return;
+        }
+
+        const data = dashboard.data;
+        accounts = data.accounts || [];
+        allMovements = data.recentTransactions || [];
+        internalPortions = data.internalPortions || {};
+
+        const empty = accounts.length === 0;
+        $("welcomePanel").hidden = !empty;
+        $("truthPanel").hidden = empty;
+        $("quickActions").hidden = empty;
+        $("actionBar").hidden = false;
+
+        renderTruth(data.moneyFlow);
+        renderAccounts(data);
+        renderBalanceSplit(data.totalBalance);
+        renderSuggestions(suggestions.ok ? suggestions.data : []);
+        renderMovements();
+        renderCategories();
+        renderFlow(data.moneyFlow);
+        renderMatches(history.ok ? history.data : []);
+    }
+
+    // El agente confirmo algo: actualizar los numeros.
+    document.addEventListener("nexorix:changed", () => loadMoney());
+
+    let resizeTimer;
+    window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => { if (lastFlow) renderFlow(lastFlow); }, 250);
+    });
+
+    async function start() {
+        try {
+            try { setPrivacy(localStorage.getItem("nexorix.privacy") === "1"); } catch (e) { setPrivacy(false); }
+
+            const me = await api("/api/users/me");
+            if (!me.ok || !me.data) {
+                Nexorix.say(pageMessage, "No fue posible cargar tu usuario. Recarga la página.", "error");
+                return;
+            }
+
+            // Identidad verificada pero sin PIN: primero debe crearlo.
+            if (me.data.kycStatus === "VERIFIED" && !me.data.pinConfigured) {
+                window.location.href = "/crear-pin.html";
+                return;
+            }
+
+            $("welcome").textContent = me.data.name;
+            $("avatar").textContent = Nexorix.initials(me.data.name);
+
+            document.querySelectorAll("[data-icon]").forEach(el =>
+                el.innerHTML = Nexorix.icon(el.dataset.icon));
+
+            $("navSlot").outerHTML = Nexorix.nav("dashboard");
+            await renderKyc(me.data);
+            await loadMoney();
+
+            const imported = new URLSearchParams(window.location.search).get("importados");
+            if (imported) {
+                Nexorix.toast(`Importamos ${imported} movimientos. Revisa si hay transferencias por confirmar.`);
+                history.replaceState(null, "", "/dashboard.html");
+            }
+
+        } catch (error) {
+            if (error.message !== "Sesion vencida") {
+                console.error(error);
+                Nexorix.say(pageMessage, "No hay conexión con Nexorix. Revisa tu internet y recarga.", "error");
+            }
+        }
+    }
+
+    $("askFlow").addEventListener("click", () =>
+        NexoAgent.open("Explícame cómo se movió mi dinero: de dónde vino, en qué se fue y qué fue solo entre mis cuentas."));
+
+    $("logoutButton").addEventListener("click", async () => {
+        try {
+            await Nexorix.api("/api/users/logout", { method: "POST" });
+        } finally {
+            window.location.href = "/login.html";
+        }
+    });
+
+    start();
+</script>
+
+</body>
+</html>
