@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0f2a2e">
+    <meta name="theme-color" content="#060913">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Nexorix">
@@ -360,7 +360,7 @@
             return `
             <article class="file-card ${ready ? "ready" : ""} ${b.status === "FAILED" ? "failed" : ""} ${spinning ? "reading" : ""}">
                 <div class="file-head">
-                    <div class="file-name"><span class="dot" style="background:#eef3f1">${Nexorix.icon("file")}</span>
+                    <div class="file-name"><span class="dot" style="background:var(--surface-2)">${Nexorix.icon("file")}</span>
                         <span>${esc(b.fileName)}</span>
                         ${b.aiUsed ? `<span class="ai-badge">${Nexorix.icon("ai")} Leído con IA</span>` : ""}</div>
                     <span class="pill ${kind}">${spinning ? '<span class="spin"></span>' : ""}${text}</span>
@@ -411,7 +411,7 @@
                     <div class="title">${esc(row.description)}</div>
                     <div class="meta">${esc(date)}
                         ${row.categoryLabel ? `<span class="tag neutral">${esc(row.categoryLabel)}</span>` : ""}
-                        ${row.status === "DUPLICATE" ? '<span class="tag" style="background:#fbf2e1;color:#7a520d">Ya estaba</span>' : ""}</div>
+                        ${row.status === "DUPLICATE" ? '<span class="tag" style="background:rgba(251,191,36,.12);color:#fcd34d">Ya estaba</span>' : ""}</div>
                     ${row.message ? `<div class="note">${esc(row.message)}</div>` : ""}
                 </div>
                 <div class="amount ${invalid ? "" : (income ? "in" : "out")}">${invalid ? "" : (income ? "+ " : "− ") + Nexorix.money(row.amount)}</div>
