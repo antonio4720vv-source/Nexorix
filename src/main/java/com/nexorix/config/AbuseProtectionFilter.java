@@ -49,7 +49,7 @@ public class AbuseProtectionFilter extends OncePerRequestFilter {
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS");
 
     /** Rutas que reciben llamadas de otros servidores (no de navegadores). */
-    private static final Set<String> SERVER_TO_SERVER = Set.of("/api/kyc/webhook", "/api/whatsapp/webhook");
+    private static final Set<String> SERVER_TO_SERVER = Set.of("/api/kyc/webhook", "/api/whatsapp/webhook", "/api/bank/webhook");
 
     private final String publicUrl;
     private final boolean ipLimits;

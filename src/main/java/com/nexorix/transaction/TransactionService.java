@@ -222,6 +222,24 @@ public class TransactionService {
         return transactionRepository.save(transaction);
     }
 
+    /**
+     * Guarda un movimiento notificado por el banco en vivo (webhook). A diferencia del
+     * extracto, aqui el saldo SI cambia: el movimiento es nuevo. El banco manda la
+     * verdad, asi que no se rechaza por saldo insuficiente.
+     */
+    @Transactional
+    public Transaction saveFromBank(Account account, BigDecimal amount, String type, String description,
+                                    LocalDateTime transactionDate, String reference) {
+        BigDecimal clean = amount.setScale(2, RoundingMode.HALF_UP);
+        Transaction transaction = new Transaction(clean, type, description, transactionDate, account, reference);
+        transaction.setCategory(TransactionClassifier.classify(description, type));
+        transaction.setSource("BANK");
+        account.setBalance(type.equals("INGRESO")
+                ? account.getBalance().add(clean) : account.getBalance().subtract(clean));
+        accountRepository.save(account);
+        return transactionRepository.save(transaction);
+    }
+
     public List<Transaction> getRecentTransactionsByUsername(String username) {
         return transactionRepository.findByAccountUserUsernameOrderByTransactionDateDesc(username);
     }

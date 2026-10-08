@@ -44,6 +44,10 @@ public class WhatsappInboundService {
     private final TransactionTemplate tx;
     private final TaskExecutor executor;
 
+    /** Opcional (no existe en algunas pruebas): completa la descripcion del gasto con la respuesta. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexorix.transaction.TransactionEnricher enricher;
+
     public WhatsappInboundService(
             WhatsappLinkRepository linkRepository,
             PurchaseNoteRepository noteRepository,
@@ -195,6 +199,10 @@ public class WhatsappInboundService {
         String valuesJson = noteService.writeValues(answer.values());
         tx.executeWithoutResult(status -> noteRepository.findById(note.getId())
                 .ifPresent(saved -> saved.answered(answerType, answer.transcript(), valuesJson)));
+
+        if (enricher != null) {
+            enricher.enrich(note.getTransactionId(), answer.values().get("producto"));
+        }
 
         reply(message, summary(columns, answer.values()));
         return Outcome.ANSWERED;

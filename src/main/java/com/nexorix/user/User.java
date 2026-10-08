@@ -70,6 +70,15 @@ public class User {
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;
 
+    /** Opt-in: si es false, Nexorix no escribe por WhatsApp por gastos comunes (las alertas criticas si). */
+    @Column(name = "whatsapp_notifications_enabled", nullable = false,
+            columnDefinition = "boolean default false")
+    private boolean whatsappNotificationsEnabled = false;
+
+    /** Celular (solo digitos, con indicativo) para alertas criticas por WhatsApp y SMS. */
+    @Column(name = "security_phone", length = 20)
+    private String securityPhone;
+
     protected User() {
     }
 
@@ -158,6 +167,22 @@ public class User {
 
     public void setKycStatus(KycStatus kycStatus) {
         this.kycStatus = kycStatus;
+    }
+
+    public boolean isWhatsappNotificationsEnabled() {
+        return whatsappNotificationsEnabled;
+    }
+
+    public void setWhatsappNotificationsEnabled(boolean enabled) {
+        this.whatsappNotificationsEnabled = enabled;
+    }
+
+    public String getSecurityPhone() {
+        return securityPhone;
+    }
+
+    public void setSecurityPhone(String securityPhone) {
+        this.securityPhone = securityPhone;
     }
 
     public boolean isActive() {

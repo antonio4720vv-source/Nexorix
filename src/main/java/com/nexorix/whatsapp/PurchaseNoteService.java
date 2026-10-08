@@ -127,7 +127,7 @@ public class PurchaseNoteService {
     }
 
     /** Solo digitos. Si son 10 digitos que empiezan por 3 (celular de Colombia), le pone el 57. */
-    static String normalizePhone(String raw) {
+    public static String normalizePhone(String raw) {
         String phone = digits(raw);
         if (phone.length() == 10 && phone.startsWith("3")) {
             phone = "57" + phone;

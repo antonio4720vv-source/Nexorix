@@ -84,8 +84,8 @@ public class PurchaseQuestionNotifier {
             try {
                 messageId = templateName.isEmpty()
                         // Sin plantilla solo funciona si la persona escribio en las ultimas 24 horas (pruebas).
-                        ? whatsapp.sendText(pending.phone(), "🛒 Nexorix: registraste un gasto de " + amount
-                        + " (" + event.description() + ").\n¿Qué compraste? Respóndeme con una nota de voz 🎙️")
+                        ? whatsapp.sendText(pending.phone(), "🛒 Nexorix: ¿En qué gastaste " + amount
+                        + " en " + event.description() + "?\nRespóndeme con una nota de voz 🎙️")
                         : whatsapp.sendTemplate(pending.phone(), templateName, templateLanguage,
                         List.of(amount, event.description()));
             } catch (WhatsappException exception) {
@@ -120,7 +120,7 @@ public class PurchaseQuestionNotifier {
         return new Pending(note.getId(), link.getPhone());
     }
 
-    static String money(BigDecimal amount) {
+    public static String money(BigDecimal amount) {
         NumberFormat format = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("es-CO"));
         format.setMaximumFractionDigits(amount.stripTrailingZeros().scale() > 0 ? 2 : 0);
         return format.format(amount);

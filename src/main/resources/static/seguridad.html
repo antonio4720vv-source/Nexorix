@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f2a2e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+    <title>Nexorix - Seguridad</title>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-left">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark"></span>Nexorix</a>
+        <span id="navSlot" data-active="seguridad"></span>
+    </div>
+    <div class="who">
+        <span class="who-name" id="welcome"></span>
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <button class="button secondary small" id="logoutButton" type="button">Salir</button>
+    </div>
+</header>
+
+<main class="page" style="max-width:1100px">
+    <div class="page-head">
+        <div>
+            <h1>Seguridad y bancos en vivo</h1>
+            <p>Nexorix recibe tus movimientos del banco al instante, los clasifica y vigila que todo cuadre con tu forma de comprar.
+               Una compra <strong>físicamente imposible</strong> se bloquea y te avisa por WhatsApp y SMS;
+               una compra o destinatario nuevo solo aparece aquí, en la app.</p>
+        </div>
+    </div>
+
+    <section class="panel stack">
+        <div class="panel-head"><h2>Avisos</h2><span id="unread"></span></div>
+        <div id="notifications" class="stack"></div>
+    </section>
+
+    <section class="panel stack">
+        <div class="panel-head"><h2>Preferencias</h2></div>
+        <label><input type="checkbox" id="waEnabled">
+            Preguntarme por WhatsApp <em>«¿En qué gastaste…?»</em> cuando haya un gasto o una transferencia a un tercero</label>
+        <div class="field">
+            <label for="securityPhone">Celular para alertas críticas (WhatsApp + SMS; se envían aunque lo anterior esté apagado)</label>
+            <input type="tel" id="securityPhone" placeholder="+57 300 123 4567" maxlength="20">
+        </div>
+        <div><button class="button" id="savePrefs" type="button">Guardar</button> <span id="prefsMsg"></span></div>
+    </section>
+
+    <section class="panel stack">
+        <div class="panel-head"><h2>Cuentas vinculadas</h2></div>
+        <div id="links"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+            <div class="field"><label for="accountSelect">Cuenta de Nexorix</label><select id="accountSelect"></select></div>
+            <button class="button secondary" id="linkAccount" type="button">Vincular al banco</button>
+        </div>
+        <p id="linkMsg"></p>
+    </section>
+
+    <section class="panel stack">
+        <div class="panel-head"><h2>Simulador de banco (demo)</h2></div>
+        <p>Envía webhooks de prueba por el mismo camino que usaría Plaid / Prometeo. Primero «Cargar hábitos».</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="scenarios">
+            <button class="button secondary" data-s="SEMILLA" type="button">Cargar hábitos</button>
+            <button class="button secondary" data-s="COMPRA" type="button">Compra normal</button>
+            <button class="button secondary" data-s="COMPRA_INUSUAL" type="button">Comercio inusual</button>
+            <button class="button secondary" data-s="TRANSFER_PROPIA" type="button">Transferencia propia</button>
+            <button class="button secondary" data-s="TRANSFER_TERCERO" type="button">Transferencia a tercero</button>
+            <button class="button" data-s="VIAJE_IMPOSIBLE" type="button">Bogotá → Miami en 1 h</button>
+        </div>
+        <p id="simMsg"></p>
+    </section>
+
+    <section class="panel stack">
+        <div class="panel-head"><h2>Movimientos del banco</h2></div>
+        <div class="table-wrap"><table id="events"></table></div>
+    </section>
+
+    <section class="panel stack">
+        <div class="panel-head"><h2>Tu perfil de comportamiento</h2></div>
+        <div id="profile"></div>
+    </section>
+</main>
+
+<script src="/nexorix.js"></script>
+<script src="/agente.js"></script>
+<script>
+    const $ = (id) => document.getElementById(id);
+    const esc = Nexorix.esc;
+
+    async function api(path, options) {
+        const result = await Nexorix.api(path, options);
+        if (result.status === 401) {
+            window.location.href = "/login.html?expirada=1";
+            throw new Error("Sesion vencida");
+        }
+        return result;
+    }
+    const post = (path, json) => api(path, { method: "POST", ...(json ? { json } : {}) });
+
+    const SEVERITY = { CRITICAL: "bad", WARNING: "warn", INFO: "done" };
+    const KIND = { EXPENSE: "Gasto", INTERNAL_TRANSFER: "Transferencia propia",
+        THIRD_PARTY_TRANSFER: "A tercero", INCOME: "Ingreso" };
+    const STATUS = { APPLIED: ["ok", "Aplicado"], BLOCKED: ["bad", "Bloqueado"], RELEASED: ["done", "Liberado"] };
+
+    async function header() {
+        const slot = $("navSlot");
+        slot.outerHTML = Nexorix.nav(slot.dataset.active);
+        const me = await api("/api/users/me");
+        if (me.ok && me.data) {
+            $("welcome").textContent = me.data.name;
+            $("avatar").textContent = Nexorix.initials(me.data.name);
+        }
+        $("logoutButton").addEventListener("click", async () => {
+            try { await Nexorix.api("/api/users/logout", { method: "POST" }); }
+            finally { window.location.href = "/login.html"; }
+        });
+    }
+
+    async function loadNotifications() {
+        const r = await api("/api/security/notifications");
+        if (!r.ok) return;
+        $("unread").innerHTML = r.data.unread ? `<span class="pill bad">${r.data.unread} sin leer</span>` : "";
+        $("notifications").innerHTML = r.data.items.length ? r.data.items.map((n) => `
+            <div class="${n.read ? "" : "unread"}" style="${n.read ? "opacity:.65;" : ""}">
+                <span class="pill ${SEVERITY[n.severity] || "done"}">${esc(n.severity)}</span>
+                <strong>${esc(n.title)}</strong> <small>${esc(Nexorix.date(n.createdAt))} · ${esc(n.channels)}</small><br>
+                ${esc(n.body)}
+                ${n.read ? "" : `<button class="button secondary small" data-read="${n.id}" type="button">Marcar leído</button>`}
+            </div>`).join("") : "<p>Sin avisos.</p>";
+    }
+
+    async function loadPrefs() {
+        const r = await api("/api/security/preferences");
+        if (!r.ok) return;
+        $("waEnabled").checked = r.data.whatsappNotificationsEnabled;
+        if (document.activeElement !== $("securityPhone")) $("securityPhone").value = r.data.securityPhone ? "+" + r.data.securityPhone : "";
+    }
+
+    async function loadLinks() {
+        const [links, accounts] = await Promise.all([api("/api/bank/links"), api("/api/accounts")]);
+        const linked = new Set((links.data || []).map((l) => l.accountId));
+        $("links").innerHTML = (links.data || []).length ? "<ul>" + links.data.map((l) =>
+            `<li><strong>${esc(l.accountName)}</strong> ↔ ${esc(l.bank)} <code>${esc(l.externalRef)}</code></li>`).join("") + "</ul>"
+            : "<p>Aún no hay cuentas vinculadas.</p>";
+        $("accountSelect").innerHTML = (accounts.data || []).filter((a) => !linked.has(a.id))
+            .map((a) => `<option value="${a.id}">${esc(a.name)} (${esc(a.bank)})</option>`).join("");
+    }
+
+    async function loadEvents() {
+        const r = await api("/api/bank/events");
+        if (!r.ok) return;
+        $("events").innerHTML = "<thead><tr><th>Fecha</th><th>Banco</th><th>Tipo</th><th>Detalle</th><th>Lugar</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody>"
+            + r.data.map((e) => {
+                const [cls, label] = STATUS[e.status] || ["done", e.status];
+                return `<tr><td>${esc(Nexorix.date(e.occurredAt))}</td><td>${esc(e.bank)}</td><td>${esc(KIND[e.kind] || e.kind)}</td>
+                    <td>${esc(e.label)}${e.riskReason ? `<br><small>${esc(e.riskReason)}</small>` : ""}</td><td>${esc(e.place)}</td>
+                    <td>${e.direction === "DEBIT" ? "−" : "+"}${esc(Nexorix.money(e.amount))}</td>
+                    <td><span class="pill ${cls}">${label}</span></td>
+                    <td>${e.status === "BLOCKED" ? `<button class="button small" data-release="${e.id}" type="button">Fui yo</button>` : ""}</td></tr>`;
+            }).join("") + "</tbody>";
+    }
+
+    async function loadProfile() {
+        const r = await api("/api/security/profile");
+        if (!r.ok) return;
+        const list = (title, items) => `<div><strong>${title}</strong><ul>${items.length
+            ? items.map((i) => `<li>${esc(i.name)} <small>×${i.count}</small></li>`).join("") : "<li>—</li>"}</ul></div>`;
+        $("profile").innerHTML = `<p>${r.data.observations} observaciones aprendidas.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">`
+            + list("Comercios habituales", r.data.merchants) + list("Categorías", r.data.categories)
+            + list("Destinatarios frecuentes", r.data.recipients) + list("Lugares comunes", r.data.places) + "</div>";
+    }
+
+    const refresh = () => Promise.all([loadNotifications(), loadEvents(), loadProfile(), loadLinks()]);
+
+    document.addEventListener("click", async (event) => {
+        const button = event.target.closest("button");
+        if (!button) return;
+        if (button.dataset.read) { await post("/api/security/notifications/" + button.dataset.read + "/read"); loadNotifications(); }
+        if (button.dataset.release) {
+            const r = await post("/api/bank/events/" + button.dataset.release + "/release");
+            if (!r.ok) Nexorix.toast(Nexorix.errorOf(r, "No se pudo liberar."), "error");
+            refresh();
+        }
+        if (button.dataset.s) {
+            const r = await post("/api/bank/demo/" + button.dataset.s);
+            $("simMsg").textContent = r.ok ? r.data.map((x) => `${x.status}${x.message ? ": " + x.message : ""}`).join(" | ")
+                : Nexorix.errorOf(r, "No se pudo simular.");
+            await refresh();
+        }
+    });
+
+    $("savePrefs").addEventListener("click", async () => {
+        const r = await api("/api/security/preferences", { method: "PUT",
+            json: { whatsappNotificationsEnabled: $("waEnabled").checked, securityPhone: $("securityPhone").value } });
+        $("prefsMsg").textContent = r.ok ? "Guardado ✔" : Nexorix.errorOf(r, "No se pudo guardar.");
+        if (r.ok) loadPrefs();
+    });
+
+    $("linkAccount").addEventListener("click", async () => {
+        const accountId = Number($("accountSelect").value);
+        if (!accountId) { $("linkMsg").textContent = "No hay cuentas por vincular."; return; }
+        const r = await post("/api/bank/links", { accountId });
+        $("linkMsg").textContent = r.ok ? "Vinculada ✔" : Nexorix.errorOf(r, "No se pudo vincular.");
+        loadLinks();
+    });
+
+    header().then(() => { loadPrefs(); refresh(); });
+</script>
+</body>
+</html>

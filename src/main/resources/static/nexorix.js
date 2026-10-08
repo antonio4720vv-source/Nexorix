@@ -69,7 +69,8 @@ const Nexorix = {
     nav(active) {
         const links = [["dashboard", "/dashboard.html", "Panel"], ["traza", "/traza.html", "Trace"],
             ["contador", "/contador.html", "Contador"], ["reportes", "/reportes.html", "Reportes"],
-            ["compras", "/compras.html", "Compras"], ["dividir", "/dividir.html", "Dividir gastos"]];
+            ["compras", "/compras.html", "Compras"], ["dividir", "/dividir.html", "Dividir gastos"],
+            ["seguridad", "/seguridad.html", "Seguridad"]];
         return '<nav class="main-nav" aria-label="Secciones">' + links.map(([id, href, label]) =>
             `<a href="${href}"${id === active ? ' aria-current="page"' : ""}>${label}</a>`).join("") + "</nav>";
     },
