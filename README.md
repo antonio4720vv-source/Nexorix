@@ -19,6 +19,9 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | Compras por WhatsApp | Al registrar un gasto, Nexorix pregunta por WhatsApp **qué compraste**; respondes con una nota de voz y Gemini llena tu tabla personalizada |
 | Cobros automáticos | Si te llega por el banco un dinero con el monto exacto de lo que te debe un amigo (y el nombre o documento coincide, o es el único cobro con ese monto), el cobro de Dividir gastos se salda solo y te avisa |
 | Bancos en vivo (demo) | Webhooks firmados de un agregador tipo Plaid / Prometeo (Nequi, Bancolombia, Davivienda…): clasifica gasto / transferencia propia / a tercero |
+| Tarjeta y categorías | Cada compra con tarjeta pregunta **siempre** por WhatsApp; la persona (o la IA, que aprende por comercio) la guarda en su categoría (helados, cigarrillos…) y avisa si la categoría o la tienda es nueva |
+| Notificaciones push | Las alertas llegan como notificación del dispositivo (Web Push + VAPID, `sw.js`), además de la campanita |
+| Extractos con PIN | Descargar PDF/CSV pide el PIN; se elige un mes o un rango de fechas |
 | Antifraude | Perfil de comportamiento, regla de **imposibilidad física** (bloqueo + WhatsApp + SMS) y detección de anomalías (solo en la app) |
 
 ## Páginas
@@ -42,6 +45,10 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | `POST /api/bank/webhook` | Webhook del agregador bancario (público, firmado con `X-Bank-Signature`) |
 | `GET/POST /api/bank/links` · `GET /api/bank/events` · `POST /api/bank/events/{id}/release` | Cuentas vinculadas, movimientos del banco y «fui yo» para liberar un bloqueo |
 | `POST /api/bank/demo/{SEMILLA\|COMPRA\|COMPRA_INUSUAL\|TRANSFER_PROPIA\|TRANSFER_TERCERO\|VIAJE_IMPOSIBLE}` | Simulador de la demo |
+| `POST /api/bank/connect` | Vincula un banco, billetera o tarjeta: crea la cuenta y trae el saldo solo |
+| `GET /api/push/key` · `POST /api/push/subscribe\|unsubscribe\|test` | Notificaciones del dispositivo |
+| `POST /api/reports/pin` | Desbloquea la descarga de extractos 3 minutos |
+| `GET /api/compras/categorias` · `PUT /api/compras/{id}/categoria` | Categorías de compras |
 | `GET/PUT /api/security/preferences` · `GET /api/security/profile` · `GET /api/security/notifications` · `POST /api/security/notifications/{id}/read` | Opt-in de WhatsApp, perfil de comportamiento y avisos dentro de la app |
 | `GET /api/imports/audit` · `?archivo=ID` · `GET /api/imports/audit.csv` | Historial de auditoría del Contador (JSON y CSV) |
 | `GET /api/friends` · `GET /api/friends/search?q=` · `POST /api/friends/requests` · `POST /api/friends/requests/{usuario}/accept` · `DELETE /api/friends/{usuario}` | Amigos |
@@ -66,6 +73,7 @@ Las rutas anteriores (`/api/trace/own-transfers`, `/confirm`, `/matches`, `/api/
 | `NEXORIX_AI_MODEL` / `NEXORIX_AI_FAST_MODEL` | No | Modelos de Gemini (por defecto `gemini-3.5-flash`) |
 | `NEXORIX_AI_MAX_CONCURRENT` | No | Llamadas simultáneas a la IA (por defecto 4) |
 | `NEXORIX_COOKIE_SECURE` | No | `true` en producción con HTTPS |
+| `NEXORIX_VAPID_PUBLIC`, `NEXORIX_VAPID_PRIVATE`, `NEXORIX_PUSH_SUBJECT` | No | Llaves VAPID de las notificaciones push. Sin ellas se generan y guardan en la base de datos |
 | `NEXORIX_IP_LIMITS` | No | `false` solo para pruebas de carga |
 | `NEXORIX_MAIL_*`, `NEXORIX_RECOVERY_DOCUMENT_CHECK`, `NEXORIX_IMPORT_*` | No | Igual que antes |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | No | Activan WhatsApp (Meta for Developers → WhatsApp → Configuración de la API) |

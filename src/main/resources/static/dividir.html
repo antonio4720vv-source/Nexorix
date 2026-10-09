@@ -141,6 +141,9 @@
             <h2>Compras</h2>
             <a class="button secondary small" href="/api/compras/compras.csv" download>Descargar CSV (Excel)</a>
         </div>
+        <p class="muted" style="margin:0 0 10px;font-size:.88rem">Cada compra con tarjeta se pregunta por WhatsApp. Guárdala en la categoría que quieras
+            (helados, cigarrillos, mercado…): la IA aprende cómo compras y te avisa si algo se sale de lo normal.</p>
+        <div class="cat-chips" id="catChips" role="group" aria-label="Filtrar por categoría"></div>
         <div class="table-wrap"><table class="purchase-table" id="table"></table></div>
         <p class="notice" id="tableMessage" role="status" aria-live="polite"></p>
     </section>
@@ -437,6 +440,8 @@
     let columns = [];
     let notes = [];
     let editing = null;
+    let categories = [];
+    let catFilter = null; // null = todas, "" = sin categoría
 
     async function api(path, options) {
         const result = await Nexorix.api(path, options);
@@ -593,15 +598,51 @@
         return isNaN(d) ? esc(iso) : d.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
     }
 
+    // ---------------- Categorías ----------------
+
+    function renderChips() {
+        const total = notes.length;
+        const uncategorized = notes.filter(n => !n.category).length;
+        const chip = (value, label, count, extra = "") => `<button type="button" class="cat-chip" data-cat-filter="${esc(value === null ? "__all" : value)}"
+            aria-pressed="${catFilter === value}">${esc(label)} <b>${count}</b>${extra}</button>`;
+        $("catChips").innerHTML = chip(null, "Todas", total)
+            + categories.map(c => chip(c.name, c.name, c.purchases, `<small class="amt">${money(c.total)}</small>`)).join("")
+            + (uncategorized && categories.length ? chip("", "Sin categoría", uncategorized) : "");
+        $("catChips").hidden = categories.length === 0;
+        $("catChips").querySelectorAll("[data-cat-filter]").forEach(b => b.addEventListener("click", () => {
+            const v = b.dataset.catFilter;
+            catFilter = v === "__all" ? null : v;
+            renderChips();
+            renderTable();
+        }));
+    }
+
+    async function loadCategories() {
+        const r = await api("/api/compras/categorias");
+        if (r.ok) { categories = r.data; renderChips(); }
+    }
+
+    function categorySelect(n) {
+        const names = categories.map(c => c.name);
+        if (n.category && !names.includes(n.category)) names.push(n.category);
+        return `<select class="cat-select" data-cat="${n.id}" aria-label="Categoría de la compra">
+            <option value="">Sin categoría</option>
+            ${names.map(name => `<option value="${esc(name)}"${name === n.category ? " selected" : ""}>${esc(name)}</option>`).join("")}
+            <option value="__new">➕ Nueva categoría…</option></select>`;
+    }
+
     function renderTable() {
-        if (!notes.length) {
-            $("table").innerHTML = '<tbody><tr><td class="empty">Todavía no hay compras. Conecta tu WhatsApp y registra un gasto en el panel.</td></tr></tbody>';
+        const shown = catFilter === null ? notes : notes.filter(n => (n.category || "") === catFilter);
+        if (!shown.length) {
+            $("table").innerHTML = '<tbody><tr><td class="empty">' + (notes.length
+                ? "No hay compras en esta categoría."
+                : "Todavía no hay compras. Conecta tu WhatsApp y paga con tu tarjeta: te preguntaremos qué compraste.") + '</td></tr></tbody>';
             return;
         }
-        const head = "<thead><tr><th>Fecha</th><th>Gasto</th><th>Monto</th>"
+        const head = "<thead><tr><th>Fecha</th><th>Gasto</th><th>Monto</th><th>Categoría</th>"
             + columns.map(c => `<th>${esc(c.label)}</th>`).join("") + "<th>Estado</th><th></th></tr></thead>";
 
-        const rows = notes.map(n => {
+        const rows = shown.map(n => {
             const isEditing = editing === n.id;
             const cells = columns.map(c => {
                 const value = (n.values || {})[c.key] || "";
@@ -620,6 +661,7 @@
                 <td>${fmtDate(n.purchaseDate)}</td>
                 <td>${esc(n.description)}${said}</td>
                 <td class="amt">${money(n.amount)}</td>
+                <td>${categorySelect(n)}</td>
                 ${cells}
                 <td>${STATUS[n.status] || esc(n.status)}${error}</td>
                 <td><div class="row-actions">${actions}</div></td>
@@ -628,6 +670,19 @@
 
         $("table").innerHTML = head + "<tbody>" + rows + "</tbody>";
 
+        $("table").querySelectorAll("[data-cat]").forEach(select => select.addEventListener("change", async () => {
+            let value = select.value;
+            if (value === "__new") {
+                value = (prompt("Nombre de la nueva categoría (ej. Helados, Cigarrillos):") || "").trim();
+                if (!value) { renderTable(); return; }
+            }
+            const r = await api("/api/compras/" + select.dataset.cat + "/categoria", { method: "PUT", json: { category: value } });
+            if (!r.ok) { Nexorix.say($("tableMessage"), Nexorix.errorOf(r, "No fue posible cambiar la categoría."), "error"); renderTable(); return; }
+            Nexorix.say($("tableMessage"), "", "");
+            notes = notes.map(n => n.id === r.data.id ? r.data : n);
+            await loadCategories();
+            renderTable();
+        }));
         $("table").querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => { editing = Number(b.dataset.edit); renderTable(); }));
         $("table").querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", () => { editing = null; renderTable(); }));
         $("table").querySelectorAll("[data-save]").forEach(b => b.addEventListener("click", async () => {
@@ -653,7 +708,12 @@
     async function loadNotes() {
         if (editing !== null) return; // no pisar lo que la persona esta escribiendo
         const r = await api("/api/compras");
-        if (r.ok) { notes = r.data; renderTable(); }
+        // Solo se vuelve a dibujar si algo cambio (no cerrar un menu que la persona tiene abierto).
+        if (r.ok && JSON.stringify(r.data) !== JSON.stringify(notes)) {
+            notes = r.data;
+            await loadCategories();
+            renderTable();
+        }
     }
 
     (async () => {
@@ -662,6 +722,7 @@
             const s = await loadSettings();
             if (s && s.phone && !s.verified) waitForVerification();
             await loadColumns();
+            renderTable();
             await loadNotes();
             // Las notas de voz llegan mientras la pagina esta abierta.
             setInterval(() => { if (!document.hidden) loadNotes(); }, 10000);

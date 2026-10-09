@@ -57,6 +57,13 @@ public class PurchaseNote {
     @Column(name = "values_json", columnDefinition = "text")
     private String valuesJson;
 
+    /**
+     * "Donde se mete" la compra: helados, cigarrillos, mercado... La persona la elige; la IA la propone
+     * a partir de lo que dijo y de lo que ya ha hecho con esa misma tienda.
+     */
+    @Column(length = 40)
+    private String category;
+
     /** VOZ o TEXTO. */
     @Column(name = "answer_type", length = 10)
     private String answerType;
@@ -162,6 +169,14 @@ public class PurchaseNote {
             this.answerType = "MANUAL";
             this.answeredAt = LocalDateTime.now();
         }
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public String getAnswerType() {

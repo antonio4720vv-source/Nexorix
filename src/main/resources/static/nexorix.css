@@ -2005,3 +2005,146 @@ dialog::backdrop { background: rgba(2, 4, 12, .7); backdrop-filter: blur(4px); }
 .profile-row strong { font-family: ui-monospace, monospace; letter-spacing: .02em; text-align: right; word-break: break-all; }
 .profile-h { margin: 18px 0 2px; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 #avatar[data-profile] { cursor: pointer; }
+
+/* ============================================================
+   Tarjeta, en vivo, campana, push y categorias de compras
+   ============================================================ */
+
+.title-icon { display: inline-flex; vertical-align: -4px; color: var(--accent); margin-right: 4px; }
+
+.title-icon svg { width: 20px; height: 20px; }
+
+.dot.card { background: rgba(79, 124, 255, .16); color: var(--accent-2); }
+
+.tag.card-tag { background: rgba(79, 124, 255, .16); color: #a9bcff; }
+
+.live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .03em;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: rgba(52, 211, 153, .14);
+    color: var(--real);
+}
+
+.live-badge i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--real);
+    animation: live 1.8s infinite;
+}
+
+@keyframes live {
+    0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, .6); }
+    70%, 100% { box-shadow: 0 0 0 7px rgba(52, 211, 153, 0); }
+}
+
+.secure-note,
+.lock-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .82rem;
+    color: var(--ink-soft);
+    background: var(--surface-2);
+    border-radius: var(--radius-s);
+    padding: 10px 12px;
+    margin: 4px 0 16px;
+}
+
+.secure-note svg { color: var(--accent); width: 18px; height: 18px; flex: none; }
+
+.bell {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    transition: color .15s, border-color .15s;
+}
+
+.bell:hover { color: var(--accent); border-color: var(--accent); }
+
+.bell-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--spend);
+    color: #060913;
+    font-size: .7rem;
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+}
+
+.push-offer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 28px;
+    background: linear-gradient(90deg, rgba(34, 211, 238, .12), rgba(79, 124, 255, .12));
+    border-bottom: 1px solid var(--line-strong);
+    font-size: .9rem;
+}
+
+.push-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--surface-2); color: var(--accent); flex: none; }
+
+.push-text { flex: 1 1 260px; min-width: 0; }
+
+.cat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+
+.cat-chip {
+    font: inherit;
+    font-weight: 700;
+    font-size: .85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.cat-chip b { background: rgba(148, 163, 205, .16); border-radius: 999px; padding: 0 8px; font-size: .75rem; }
+
+.cat-chip small { color: var(--muted); font-weight: 600; }
+
+.cat-chip:hover { border-color: var(--accent); }
+
+.cat-chip[aria-pressed="true"] { background: rgba(34, 211, 238, .14); border-color: var(--accent); color: var(--accent); }
+
+.cat-select {
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 600;
+    padding: 6px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+    max-width: 170px;
+}
+
+.cat-select:focus { outline: none; border-color: var(--accent); }
+
+@media (max-width: 880px) {
+    .push-offer { padding: 12px 16px; }
+}

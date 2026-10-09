@@ -42,15 +42,27 @@
         </div>
     </div>
 
-    <section class="panel stack">
+    <section class="panel stack" id="avisos">
         <div class="panel-head"><h2>Avisos</h2><span id="unread"></span></div>
         <div id="notifications" class="stack"></div>
     </section>
 
     <section class="panel stack">
+        <div class="panel-head"><h2>Notificaciones en este dispositivo</h2><span id="pushStatus"></span></div>
+        <p>Las alertas (compras bloqueadas, comercios o tiendas nuevas, compras fuera de lo normal) llegan como notificación
+           del celular o del computador, aunque no tengas Nexorix abierto.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="button" id="pushToggle" type="button">Activar notificaciones</button>
+            <button class="button secondary" id="pushTest" type="button" hidden>Enviar una de prueba</button>
+        </div>
+        <p class="notice" id="pushMessage" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel stack">
         <div class="panel-head"><h2>Preferencias</h2></div>
+        <p class="muted" style="margin:0">Cada compra con tarjeta te la preguntamos por WhatsApp (<em>«¿qué compraste?»</em>) cuando tienes tu número conectado en <a href="/dividir.html#compras">Compras</a>.</p>
         <label><input type="checkbox" id="waEnabled">
-            Preguntarme por WhatsApp <em>«¿En qué gastaste…?»</em> cuando haya un gasto o una transferencia a un tercero</label>
+            Preguntarme también por WhatsApp cuando envíe plata a un tercero (transferencias)</label>
         <div class="field">
             <label for="securityPhone">Celular para alertas críticas (WhatsApp + SMS; se envían aunque lo anterior esté apagado)</label>
             <input type="tel" id="securityPhone" placeholder="+57 300 123 4567" maxlength="20">
@@ -59,7 +71,8 @@
     </section>
 
     <section class="panel stack">
-        <div class="panel-head"><h2>Cuentas vinculadas</h2></div>
+        <div class="panel-head"><h2>Cuentas vinculadas</h2><a class="button small" href="/dashboard.html">Vincular un banco</a></div>
+        <p class="muted" style="margin:0">Para conectar un banco, billetera o tarjeta nuevo usa «Vincular» en el panel: el saldo llega solo.</p>
         <div id="links"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
             <div class="field"><label for="accountSelect">Cuenta de Nexorix</label><select id="accountSelect"></select></div>
@@ -200,7 +213,46 @@
         loadLinks();
     });
 
-    header().then(() => { loadPrefs(); refresh(); });
+    // ---------- Notificaciones del dispositivo ----------
+
+    async function renderPush() {
+        const supported = Nexorix.push.supported();
+        const active = supported && await Nexorix.push.active();
+        const blocked = supported && Notification.permission === "denied";
+        $("pushStatus").innerHTML = !supported ? '<span class="pill warn">No disponible</span>'
+            : blocked ? '<span class="pill bad">Bloqueadas</span>'
+            : active ? '<span class="pill ok">Activas</span>' : '<span class="pill wait">Apagadas</span>';
+        $("pushToggle").textContent = active ? "Desactivar en este dispositivo" : "Activar notificaciones";
+        $("pushToggle").disabled = !supported || blocked;
+        $("pushTest").hidden = !active;
+        if (!supported) Nexorix.say($("pushMessage"), "Este navegador no permite notificaciones. En iPhone, agrega Nexorix a la pantalla de inicio y ábrelo desde ahí.", "wait");
+        else if (blocked) Nexorix.say($("pushMessage"), "Bloqueaste las notificaciones. Actívalas en los ajustes del navegador para este sitio.", "wait");
+    }
+
+    $("pushToggle").addEventListener("click", async () => {
+        $("pushToggle").disabled = true;
+        try {
+            if (await Nexorix.push.active()) {
+                await Nexorix.push.disable();
+                Nexorix.say($("pushMessage"), "Notificaciones desactivadas en este dispositivo.", "");
+            } else {
+                await Nexorix.push.enable();
+                Nexorix.say($("pushMessage"), "¡Listo! Te avisaremos en este dispositivo.", "ok");
+            }
+        } catch (error) {
+            Nexorix.say($("pushMessage"), error.message, "error");
+        }
+        $("pushToggle").disabled = false;
+        renderPush();
+    });
+
+    $("pushTest").addEventListener("click", async () => {
+        const r = await post("/api/push/test");
+        Nexorix.say($("pushMessage"), r.ok && r.data.sent > 0 ? "Enviamos una notificación de prueba." :
+            "No pudimos entregar la prueba. Desactiva y vuelve a activar las notificaciones.", r.ok && r.data.sent > 0 ? "ok" : "error");
+    });
+
+    header().then(() => { loadPrefs(); refresh(); renderPush(); });
 </script>
 </body>
 </html>

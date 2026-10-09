@@ -515,6 +515,9 @@ const Nexorix = {
             undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
             split: '<path d="M4 12h6M10 12l8-6M10 12l8 6M18 6h2M18 18h2"/>',
             merge: '<path d="M4 6l8 6-8 6M12 12h8"/>',
+            card: '<rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M2.5 10h19M6 15h4"/>',
+            bell: '<path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21a2 2 0 0 0 4 0"/>',
+            lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
             logo: '<path d="M4 17l5-5 4 4 7-8"/><circle cx="20" cy="8" r="1.6" fill="currentColor"/>'
         };
         return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -606,6 +609,174 @@ const Nexorix = {
         box._timer = setTimeout(() => box.className = "toast " + (type || ""), 3200);
     },
 
+    // ============================================================
+    // NOTIFICACIONES DEL DISPOSITIVO (Web Push)
+    // ============================================================
+
+    push: {
+        supported() {
+            return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+        },
+
+        keyBytes(base64url) {
+            const padded = (base64url + "=".repeat((4 - base64url.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+            return Uint8Array.from(atob(padded), char => char.charCodeAt(0));
+        },
+
+        async registration() {
+            return navigator.serviceWorker.register("/sw.js");
+        },
+
+        /** Crea (o reutiliza) la suscripcion de este navegador y se la entrega al servidor. */
+        async subscribe() {
+            const registration = await this.registration();
+            await navigator.serviceWorker.ready;
+            const key = await Nexorix.api("/api/push/key");
+            if (!key.ok || !key.data) {
+                throw new Error("No fue posible preparar las notificaciones.");
+            }
+            let subscription = await registration.pushManager.getSubscription();
+            if (!subscription) {
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: this.keyBytes(key.data.publicKey)
+                });
+            }
+            const json = subscription.toJSON();
+            const saved = await Nexorix.api("/api/push/subscribe", { method: "POST", json });
+            if (!saved.ok) {
+                throw new Error(Nexorix.errorOf(saved, "No fue posible activar las notificaciones."));
+            }
+            return subscription;
+        },
+
+        /** Pide permiso (hay que llamarlo desde un clic) y activa los avisos. */
+        async enable() {
+            if (!this.supported()) {
+                throw new Error("Este navegador no permite notificaciones. En iPhone, instala Nexorix en la pantalla de inicio.");
+            }
+            const permission = await Notification.requestPermission();
+            if (permission !== "granted") {
+                throw new Error("Las notificaciones están bloqueadas. Actívalas en los ajustes del navegador.");
+            }
+            await this.subscribe();
+        },
+
+        async disable() {
+            if (!this.supported()) return;
+            const registration = await navigator.serviceWorker.getRegistration("/sw.js");
+            const subscription = registration && await registration.pushManager.getSubscription();
+            if (subscription) {
+                await Nexorix.api("/api/push/unsubscribe", { method: "POST", json: { endpoint: subscription.endpoint } });
+                await subscription.unsubscribe();
+            }
+        },
+
+        /** "granted" con suscripcion activa en este navegador. */
+        async active() {
+            if (!this.supported() || Notification.permission !== "granted") return false;
+            const registration = await navigator.serviceWorker.getRegistration("/sw.js");
+            return !!(registration && await registration.pushManager.getSubscription());
+        },
+
+        /** En cada pagina con sesion: mantiene la suscripcion al dia o invita a activarla. */
+        async init() {
+            if (!this.supported()) return;
+            try {
+                if (Notification.permission === "granted") {
+                    await this.subscribe();
+                } else if (Notification.permission === "default") {
+                    this.offer();
+                }
+            } catch (error) {
+                console.warn(error.message);
+            }
+        },
+
+        offer() {
+            let dismissed = false;
+            try { dismissed = Date.now() < Number(localStorage.getItem("nexorix.pushLater") || 0); } catch (e) { /* sin almacenamiento */ }
+            if (dismissed || document.getElementById("pushOffer")) return;
+
+            const bar = document.createElement("div");
+            bar.id = "pushOffer";
+            bar.className = "push-offer";
+            bar.innerHTML = `<span class="push-icon">${Nexorix.icon("bell")}</span>
+                <span class="push-text"><strong>Recibe tus alertas en el celular.</strong>
+                Compras bloqueadas o inusuales te llegan como notificación, aunque no tengas Nexorix abierto.</span>
+                <button type="button" class="button small" data-act="yes">Activar</button>
+                <button type="button" class="text-button" data-act="no">Ahora no</button>`;
+            const topbar = document.querySelector(".topbar");
+            topbar.insertAdjacentElement("afterend", bar);
+            bar.addEventListener("click", async (event) => {
+                const act = event.target.closest("button")?.dataset.act;
+                if (act === "no") {
+                    try { localStorage.setItem("nexorix.pushLater", String(Date.now() + 7 * 864e5)); } catch (e) { /* sin almacenamiento */ }
+                    bar.remove();
+                } else if (act === "yes") {
+                    try {
+                        await Nexorix.push.enable();
+                        bar.remove();
+                        Nexorix.toast("Listo: te avisaremos en este dispositivo.");
+                    } catch (error) {
+                        Nexorix.toast(error.message, "error");
+                    }
+                }
+            });
+        }
+    },
+
+    // ============================================================
+    // CAMPANA DE AVISOS (arriba, en todas las paginas con sesion)
+    // ============================================================
+
+    bell: {
+        lastUnread: null,
+        lastTopId: null,
+
+        mount() {
+            const who = document.querySelector(".topbar .who");
+            if (!who || document.getElementById("bellLink")) return;
+            const link = document.createElement("a");
+            link.id = "bellLink";
+            link.className = "bell";
+            link.href = "/seguridad.html#avisos";
+            link.setAttribute("aria-label", "Avisos");
+            link.innerHTML = Nexorix.icon("bell") + '<span class="bell-count" id="bellCount" hidden></span>';
+            who.insertBefore(link, who.querySelector(".who-name") || who.firstChild);
+        },
+
+        async refresh() {
+            const result = await Nexorix.api("/api/security/notifications");
+            if (!result.ok || !result.data) return false;
+            const unread = Number(result.data.unread || 0);
+            const count = document.getElementById("bellCount");
+            if (count) {
+                count.hidden = unread === 0;
+                count.textContent = unread > 9 ? "9+" : String(unread);
+            }
+            const top = (result.data.items || [])[0];
+            // Aviso nuevo mientras la persona tiene la app abierta: tambien se ve en pantalla.
+            if (this.lastTopId !== null && top && top.id !== this.lastTopId && !top.read) {
+                Nexorix.toast((top.severity === "CRITICAL" ? "🚨 " : "") + top.title + ": " + top.body,
+                    top.severity === "CRITICAL" ? "error" : "");
+            }
+            this.lastTopId = top ? top.id : 0;
+            this.lastUnread = unread;
+            document.dispatchEvent(new CustomEvent("nexorix:notifications", { detail: result.data }));
+            return true;
+        },
+
+        /** Solo si hay sesion (algunas paginas con barra, como el cobro, son publicas). */
+        async start() {
+            if (!await this.refresh()) return;
+            this.mount();
+            await this.refresh();
+            setInterval(() => { if (!document.hidden) this.refresh(); }, 15000);
+            Nexorix.push.init();
+        }
+    },
+
     /** Muestra un mensaje en un contenedor (tipo: ok, error, wait). */
     say(element, message, type) {
         element.className = "notice " + (type || "");
@@ -625,6 +796,11 @@ document.addEventListener("DOMContentLoaded", () => {
         mark.innerHTML = Nexorix.icon("logo");
         mark.style.color = "#04101f";
     });
+
+    // Paginas con sesion (tienen barra superior): campana de avisos y notificaciones del dispositivo.
+    if (document.querySelector(".topbar")) {
+        Nexorix.bell.start();
+    }
 
     // Seguridad: en las paginas con sesion iniciada (las que tienen barra superior),
     // si pasan 10 minutos sin tocar nada se cierra la sesion, como en una app de banco.

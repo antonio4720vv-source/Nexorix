@@ -406,13 +406,15 @@ public class AgentTools {
         String format = "csv".equalsIgnoreCase(args.path("formato").asText()) ? "csv" : "pdf";
         LocalDate from = date(args, "desde");
         LocalDate to = date(args, "hasta");
-        StringBuilder url = new StringBuilder("/api/reports/" + (format.equals("pdf") ? "resumen.pdf" : "movimientos.csv"));
+        // Bajar un extracto exige el PIN, asi que el boton lleva a Reportes con el periodo ya elegido.
+        StringBuilder url = new StringBuilder("/contador.html");
         String sep = "?";
         if (from != null) { url.append(sep).append("desde=").append(from); sep = "&"; }
         if (to != null) url.append(sep).append("hasta=").append(to);
-        actions.add(AgentAction.download(format.equals("pdf") ? "Descargar reporte PDF" : "Descargar CSV para Excel",
+        url.append("#reportes");
+        actions.add(AgentAction.link(format.equals("pdf") ? "Descargar reporte PDF (pide tu PIN)" : "Descargar CSV para Excel (pide tu PIN)",
                 url.toString()));
-        return Map.of("ok", true, "mensaje", "Se mostró el botón de descarga del reporte " + format.toUpperCase());
+        return Map.of("ok", true, "mensaje", "Se mostró un botón que abre Reportes con el periodo elegido; allí la persona escribe su PIN para descargar el " + format.toUpperCase());
     }
 
     // ------------------------------------------------------------

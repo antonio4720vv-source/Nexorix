@@ -39,7 +39,8 @@ import java.util.stream.Collectors;
  *   1. clasificar (gasto / transferencia interna / a tercero / ingreso)
  *   2. antifraude: imposibilidad fisica -> BLOQUEA y alerta por app + WhatsApp + SMS
  *   3. si pasa: guarda la transaccion, aprende el comportamiento y avisa si es una anomalia (solo app)
- *   4. si es gasto o transferencia a tercero y la persona activo el opt-in: pregunta por WhatsApp
+ *   4. si es una compra con tarjeta: pregunta SIEMPRE por WhatsApp que compro (la transferencia a un
+ *      tercero solo si la persona activo el opt-in)
  *
  * Todo en una sola transaccion; WhatsApp / SMS salen despues del commit y en otro hilo.
  */
@@ -156,6 +157,9 @@ public class BankSyncService {
         Transaction saved = transactions.saveFromBank(event.getAccount(), event.getAmount(),
                 debit ? "EGRESO" : "INGRESO", description, event.getOccurredAt(),
                 reference.length() > 150 ? reference.substring(0, 150) : reference);
+        if (kind == BankMovementKind.EXPENSE) {
+            saved.setSource("CARD"); // la pagina dibuja una tarjeta en las compras con tarjeta
+        }
         event.applied(finalStatus, saved.getId());
         events.save(event);
 
@@ -172,9 +176,11 @@ public class BankSyncService {
                     verdict.reason() + " (" + PurchaseQuestionNotifier.money(event.getAmount()) + ").", event.getId()));
         }
 
-        // Opt-in: sin el flag, los gastos comunes no generan ningun WhatsApp.
-        boolean asksContext = kind == BankMovementKind.EXPENSE || kind == BankMovementKind.THIRD_PARTY_TRANSFER;
-        if (asksContext && user.isWhatsappNotificationsEnabled()) {
+        // Toda compra con tarjeta pregunta "¿que compraste?" (si hay un WhatsApp verificado; el notifier lo revisa).
+        // Las transferencias a terceros siguen siendo opt-in.
+        boolean asks = kind == BankMovementKind.EXPENSE
+                || (kind == BankMovementKind.THIRD_PARTY_TRANSFER && user.isWhatsappNotificationsEnabled());
+        if (asks) {
             publisher.publishEvent(new PurchaseRegisteredEvent(saved.getId(), user.getId(), event.getAmount(),
                     kind == BankMovementKind.EXPENSE ? event.getLabel() : "una transferencia a " + event.getLabel(),
                     event.getOccurredAt()));

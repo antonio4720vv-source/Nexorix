@@ -163,7 +163,7 @@
         </div>
 
         <section class="panel stack">
-            <div class="panel-head"><h2>Descargar</h2><span class="muted" id="movementsCount" style="font-size:.85rem"></span></div>
+            <div class="panel-head"><h2>Descargar extracto</h2><span class="muted" id="movementsCount" style="font-size:.85rem"></span></div>
             <div class="download-row">
                 <a class="download-card" id="pdfLink" href="#" download>
                     <span class="dot out" data-icon="file"></span>
@@ -217,6 +217,27 @@
         </section>
     </div>
 </main>
+
+<!-- PIN para descargar extractos -->
+<dialog class="sheet" id="pinSheet" aria-labelledby="pinSheetTitle">
+    <form class="sheet-body" id="pinForm" novalidate>
+        <div class="sheet-head">
+            <h2 id="pinSheetTitle"><span class="title-icon" data-icon="lock"></span> Confirma tu PIN</h2>
+            <button class="close-button" type="button" data-close-pin aria-label="Cerrar">&times;</button>
+        </div>
+        <p class="lead">Por seguridad, escribe tu PIN de 6 dígitos para descargar el extracto del periodo elegido
+            (<strong id="periodLabel"></strong>).</p>
+        <div class="field">
+            <label for="pinInput">PIN</label>
+            <input id="pinInput" class="pin" type="password" inputmode="numeric" autocomplete="one-time-code"
+                   maxlength="6" pattern="\d{6}" placeholder="••••••" required>
+        </div>
+        <p class="notice" id="pinMessage" role="alert"></p>
+        <div class="sheet-actions">
+            <button class="button" type="submit" id="pinSubmit">Descargar</button>
+        </div>
+    </form>
+</dialog>
 
 <script src="/nexorix.js"></script>
 <script src="/trace-ui.js"></script>
@@ -717,9 +738,81 @@
             refresh();
         }));
 
+        // ---------- Descargar con PIN ----------
+
+        let pendingDownload = null;
+        let unlockedUntil = 0;
+
+        function startDownload(href) {
+            const a = document.createElement("a");
+            a.href = href;
+            a.download = "";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        function periodText() {
+            const f = $("from").value, t = $("to").value;
+            const fmt = (v) => new Date(v + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
+            return f && t ? `${fmt(f)} a ${fmt(t)}` : f ? `desde ${fmt(f)}` : t ? `hasta ${fmt(t)}` : "todos los movimientos";
+        }
+
+        ["pdfLink", "csvLink"].forEach(id => $(id).addEventListener("click", (event) => {
+            event.preventDefault();
+            const href = $(id).href;
+            if (Date.now() < unlockedUntil) { startDownload(href); return; }
+            pendingDownload = href;
+            $("periodLabel").textContent = periodText();
+            $("pinForm").reset();
+            Nexorix.say($("pinMessage"), "", "");
+            $("pinSheet").showModal();
+            $("pinInput").focus();
+        }));
+
+        document.querySelector("[data-close-pin]").addEventListener("click", () => $("pinSheet").close());
+        $("pinSheet").addEventListener("click", (event) => { if (event.target === $("pinSheet")) $("pinSheet").close(); });
+        $("pinInput").addEventListener("input", () => { $("pinInput").value = $("pinInput").value.replace(/\D/g, "").slice(0, 6); });
+
+        $("pinForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            if (!/^\d{6}$/.test($("pinInput").value)) {
+                Nexorix.say($("pinMessage"), "El PIN tiene 6 dígitos.", "error");
+                return;
+            }
+            $("pinSubmit").disabled = true;
+            try {
+                const result = await api("/api/reports/pin", { method: "POST", json: { pin: $("pinInput").value } });
+                if (!result.ok) {
+                    Nexorix.say($("pinMessage"), Nexorix.errorOf(result, "PIN incorrecto."), "error");
+                    $("pinInput").value = "";
+                    $("pinInput").focus();
+                    return;
+                }
+                unlockedUntil = Date.now() + (Number(result.data.seconds) - 10) * 1000;
+                $("pinSheet").close();
+                if (pendingDownload) startDownload(pendingDownload);
+                pendingDownload = null;
+            } finally {
+                $("pinSubmit").disabled = false;
+                $("pinInput").value = "";
+            }
+        });
+
         let started = false;
         views.reportes = () => {
-            if (!started) { started = true; setPreset("month"); }
+            if (started) return;
+            started = true;
+            const url = new URLSearchParams(window.location.search);
+            if (url.get("desde") || url.get("hasta")) {
+                // Viene del agente Nexo con el periodo ya elegido.
+                $("from").value = url.get("desde") || "";
+                $("to").value = url.get("hasta") || "";
+                $("presets").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", "false"));
+                refresh();
+            } else {
+                setPreset("month");
+            }
         };
     })();
 </script>

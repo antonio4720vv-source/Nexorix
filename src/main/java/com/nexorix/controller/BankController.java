@@ -34,6 +34,16 @@ public class BankController {
     public record LinkRequest(Long accountId, String bank, String externalRef, String phone) {
     }
 
+    public record ConnectRequest(String bank, String type, String name, String cardNumber, String cardExpiry) {
+    }
+
+    /** Conectar un banco o billetera: se crea la cuenta y el saldo llega solo, sin preguntarlo. */
+    @PostMapping("/connect")
+    public BankLinkService.LinkView connect(@RequestBody ConnectRequest request) {
+        return linkService.connect(username(), request.bank(), request.type(), request.name(),
+                request.cardNumber(), request.cardExpiry());
+    }
+
     @GetMapping("/links")
     public List<BankLinkService.LinkView> links() {
         return linkService.list(username());
