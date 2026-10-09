@@ -23,8 +23,17 @@ public record BankWebhookPayload(
         String merchant,
         Counterparty counterparty,
         Location location,
-        OffsetDateTime occurredAt
+        OffsetDateTime occurredAt,
+        String cardLast4
 ) {
+
+    /** Constructor sin tarjeta (agregadores que no la informan). */
+    public BankWebhookPayload(String eventId, String bank, String accountRef, String direction, BigDecimal amount,
+                              String currency, String channel, String merchant, Counterparty counterparty,
+                              Location location, OffsetDateTime occurredAt) {
+        this(eventId, bank, accountRef, direction, amount, currency, channel, merchant, counterparty, location,
+                occurredAt, null);
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Counterparty(String name, String accountRef, String document) {

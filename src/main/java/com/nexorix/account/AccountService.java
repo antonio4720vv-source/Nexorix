@@ -45,6 +45,21 @@ public class AccountService {
         return createAccount(name, type, bank, balance, username, null, null);
     }
 
+    /** Igual, pero con los datos de la tarjeta (numero y vencimiento): se validan y solo se guardan marca, ultimos 4 y vencimiento. */
+    @Transactional
+    public Account createAccount(String name, String type, String bank, BigDecimal balance, String username,
+                                 BigDecimal creditLimit, String cardNumber, String cardExpiry) {
+        boolean card = cardNumber != null && !cardNumber.isBlank();
+        CardInfo info = card ? CardInfo.of(cardNumber, cardExpiry, java.time.LocalDate.now()) : null;
+        Account account = createAccount(name, type, bank, balance, username, creditLimit,
+                info == null ? null : info.last4());
+        if (info != null) {
+            account.setCard(info.brand(), info.last4(), info.expMonth(), info.expYear());
+            return accountRepository.save(account);
+        }
+        return account;
+    }
+
     /**
      * Crea una cuenta o tarjeta. En CREDITO "balance" es el cupo disponible y creditLimit el cupo total
      * (si no viene, es igual al disponible). Ninguna cuenta puede quedar con saldo negativo.

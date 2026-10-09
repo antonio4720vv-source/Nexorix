@@ -208,10 +208,17 @@
                 <input id="creditLimit" inputmode="numeric" placeholder="0" autocomplete="off">
             </div>
             <div class="field">
-                <label for="cardLast4">Últimos 4 dígitos (opcional)</label>
-                <input id="cardLast4" inputmode="numeric" maxlength="4" placeholder="1234" autocomplete="off">
+                <label for="cardNumber">Número de la tarjeta</label>
+                <input id="cardNumber" inputmode="numeric" maxlength="23" placeholder="0000 0000 0000 0000" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="cardExpiry">Vencimiento (MM/AA)</label>
+                <input id="cardExpiry" inputmode="numeric" maxlength="5" placeholder="MM/AA" autocomplete="off">
             </div>
         </div>
+        <p class="muted" id="cardNote" style="font-size:.8rem;margin:0" hidden>Por seguridad solo guardamos la marca, los últimos 4 dígitos y el
+           vencimiento. <strong>Nunca</strong> te pedimos ni guardamos el CVV, y el número completo se descarta después de validarlo.
+           Con eso detectamos compras con una tarjeta vencida o distinta de la tuya.</p>
         <p class="muted" style="font-size:.8rem;margin:0">Ninguna cuenta puede quedar en negativo. En una tarjeta de crédito el
            “saldo” es el <strong>cupo disponible</strong>; lo que gastas lo baja y lo que pagas lo sube.</p>
 
@@ -372,7 +379,7 @@
 
     $("accountType").addEventListener("change", () => {
         const type = $("accountType").value;
-        $("cardFields").hidden = !["DEBITO", "CREDITO"].includes(type);
+        $("cardFields").hidden = $("cardNote").hidden = !["DEBITO", "CREDITO"].includes(type);
         $("creditLimit").parentElement.hidden = type !== "CREDITO";
         $("accountBalanceLabel").textContent = type === "CREDITO" ? "Cupo disponible" : "Saldo actual";
     });
@@ -394,8 +401,9 @@
             const limit = Nexorix.parseMoney($("creditLimit").value || "0");
             params.creditLimit = isNaN(limit) || limit <= 0 ? params.balance : limit;
         }
-        if (["DEBITO", "CREDITO"].includes(params.type) && $("cardLast4").value.trim()) {
-            params.cardLast4 = $("cardLast4").value.trim();
+        if (["DEBITO", "CREDITO"].includes(params.type) && $("cardNumber").value.trim()) {
+            params.cardNumber = $("cardNumber").value.trim();
+            params.cardExpiry = $("cardExpiry").value.trim();
         }
         submitForm($("accountSubmit"), "/api/accounts", params, "Cuenta agregada.", "accountSheet");
     });
@@ -583,7 +591,7 @@
                 ${bankChip(account.bank)}
                 <div>
                     <div class="title">${esc(account.name)}</div>
-                    <div class="meta">${esc(account.bank)}${TYPE_LABEL[account.type] ? " · " + TYPE_LABEL[account.type] : ""}${account.cardLast4 ? " ···· " + esc(account.cardLast4) : ""}${account.type === "CREDITO" && account.creditLimit ? " · cupo " + money(account.creditLimit) : ""}</div>
+                    <div class="meta">${esc(account.bank)}${TYPE_LABEL[account.type] ? " · " + TYPE_LABEL[account.type] : ""}${account.cardLast4 ? " · " + esc(account.cardBrand || "") + " ···· " + esc(account.cardLast4) : ""}${account.cardExpMonth ? " · vence " + String(account.cardExpMonth).padStart(2, "0") + "/" + String(account.cardExpYear).slice(2) : ""}${account.type === "CREDITO" && account.creditLimit ? " · cupo " + money(account.creditLimit) : ""}</div>
                 </div>
                 <div class="amount">${amt(account.balance)}</div>
             </div>`).join("");

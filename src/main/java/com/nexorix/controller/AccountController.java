@@ -28,7 +28,9 @@ public class AccountController {
             @RequestParam String bank,
             @RequestParam BigDecimal balance,
             @RequestParam(required = false) BigDecimal creditLimit,
-            @RequestParam(required = false) String cardLast4
+            @RequestParam(required = false) String cardLast4,
+            @RequestParam(required = false) String cardNumber,
+            @RequestParam(required = false) String cardExpiry
     ) {
 
         Authentication authentication =
@@ -43,15 +45,10 @@ public class AccountController {
 
         String username = authentication.getName();
 
-        Account account = accountService.createAccount(
-                name,
-                type,
-                bank,
-                balance,
-                username,
-                creditLimit,
-                cardLast4
-        );
+        // El numero completo solo se valida y se descarta; el CVV no se recibe ni se guarda.
+        Account account = cardNumber != null && !cardNumber.isBlank()
+                ? accountService.createAccount(name, type, bank, balance, username, creditLimit, cardNumber, cardExpiry)
+                : accountService.createAccount(name, type, bank, balance, username, creditLimit, cardLast4);
 
         return ResponseEntity.ok(
                 AccountResponse.fromAccount(account)

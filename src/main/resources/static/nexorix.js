@@ -84,7 +84,7 @@ const Nexorix = {
             "demo.label": "Demo", "demo.on": "Demo activo", "demo.title": "Modo Demo: datos de ejemplo para probar cada función.",
             "demo.load": "Cargar datos de ejemplo", "demo.exit": "Salir del demo", "demo.simulate": "Simular:",
             "demo.COMPRA": "Compra", "demo.COMPRA_INUSUAL": "Compra inusual", "demo.TRANSFER_PROPIA": "Transferencia propia",
-            "demo.TRANSFER_TERCERO": "Transferencia a tercero", "demo.VIAJE_IMPOSIBLE": "Viaje imposible", "demo.PAGO_DIVISION": "Un amigo te paga su parte",
+            "demo.TRANSFER_TERCERO": "Transferencia a tercero", "demo.VIAJE_IMPOSIBLE": "Viaje imposible", "demo.PAGO_DIVISION": "Un amigo te paga su parte", "demo.TARJETA_AJENA": "Tarjeta no registrada",
             "demo.tools": "Herramientas de demo", "demo.toolsOpen": "Dinero y movimientos…", "demo.account": "Cuenta", "demo.amount": "Monto a agregar", "demo.password": "Clave de demo", "demo.addMoney": "Agregar dinero", "demo.resetMoney": "Reiniciar dinero", "demo.resetTx": "Reiniciar movimientos de la cuenta",
             "demo.bank": "Banco", "demo.split": "Dividir gastos", "demo.statements": "Extractos y reportes",
             "demo.splitRun": "Dividir una cena", "demo.importRun": "Subir extracto de ejemplo", "demo.goReports": "Ver reportes",
@@ -104,7 +104,7 @@ const Nexorix = {
             "demo.label": "Demo", "demo.on": "Demo on", "demo.title": "Demo mode: sample data to try every feature.",
             "demo.load": "Load sample data", "demo.exit": "Exit demo", "demo.simulate": "Simulate:",
             "demo.COMPRA": "Purchase", "demo.COMPRA_INUSUAL": "Unusual purchase", "demo.TRANSFER_PROPIA": "Own transfer",
-            "demo.TRANSFER_TERCERO": "Transfer to third party", "demo.VIAJE_IMPOSIBLE": "Impossible trip", "demo.PAGO_DIVISION": "A friend pays their share",
+            "demo.TRANSFER_TERCERO": "Transfer to third party", "demo.VIAJE_IMPOSIBLE": "Impossible trip", "demo.PAGO_DIVISION": "A friend pays their share", "demo.TARJETA_AJENA": "Unregistered card",
             "demo.tools": "Demo tools", "demo.toolsOpen": "Money and transactions…", "demo.account": "Account", "demo.amount": "Amount to add", "demo.password": "Demo password", "demo.addMoney": "Add money", "demo.resetMoney": "Reset money", "demo.resetTx": "Reset account transactions",
             "demo.bank": "Bank", "demo.split": "Split expenses", "demo.statements": "Statements & reports",
             "demo.splitRun": "Split a dinner", "demo.importRun": "Upload sample statement", "demo.goReports": "View reports",
@@ -153,7 +153,7 @@ const Nexorix = {
 
     demo: {
         /** Escenarios de la barra Demo: el servidor los arma como webhooks del banco. */
-        scenarios: ["COMPRA", "COMPRA_INUSUAL", "TRANSFER_PROPIA", "TRANSFER_TERCERO", "VIAJE_IMPOSIBLE", "PAGO_DIVISION"],
+        scenarios: ["COMPRA", "COMPRA_INUSUAL", "TRANSFER_PROPIA", "TRANSFER_TERCERO", "VIAJE_IMPOSIBLE", "TARJETA_AJENA", "PAGO_DIVISION"],
 
         isOn() {
             try {
@@ -200,15 +200,15 @@ const Nexorix = {
                 { name: "Nequi (ejemplo)", bank: "Nequi", type: "BILLETERA", balance: 3000000 });
             await create("/api/accounts",
                 { name: "Davivienda (ejemplo)", bank: "Davivienda", type: "AHORROS", balance: 0 });
-            await create("/api/accounts",
-                { name: "Visa débito (ejemplo)", bank: "Bancolombia", type: "DEBITO", balance: 800000, cardLast4: "4321" });
+            const debit = await create("/api/accounts",
+                { name: "Visa débito (ejemplo)", bank: "Bancolombia", type: "DEBITO", balance: 800000, cardNumber: "4111 1111 1111 1111", cardExpiry: "12/30" });
             await create("/api/accounts",
                 { name: "Mastercard crédito (ejemplo)", bank: "Davivienda", type: "CREDITO", balance: 1500000,
-                  creditLimit: 2000000, cardLast4: "9876" });
+                  creditLimit: 2000000, cardNumber: "5555 5555 5555 4444", cardExpiry: "09/29" });
             await create("/api/transactions",
                 { accountId: nequi.id, type: "INGRESO", amount: 3000000, description: "Salario" });
 
-            const linked = await Nexorix.api("/api/bank/links", { method: "POST", json: { accountId: nequi.id } });
+            const linked = await Nexorix.api("/api/bank/links", { method: "POST", json: { accountId: debit.id } });
             if (!linked.ok) throw new Error(Nexorix.errorOf(linked, "No fue posible vincular el banco de ejemplo."));
             await Nexorix.demo.run("SEMILLA", true);
             Nexorix.toast("Datos de ejemplo cargados. Prueba los demás escenarios desde la barra Demo.");
@@ -401,19 +401,23 @@ const Nexorix = {
 
     /** Reduce una imagen a un cuadrado de `size` px (JPEG) para guardarla liviana. */
     shrinkImage(file, size) {
+        // Se lee como data URL (no blob:): la politica de seguridad solo deja cargar imagenes 'self' y data:.
         return new Promise((resolve, reject) => {
-            const url = URL.createObjectURL(file);
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement("canvas");
-                canvas.width = canvas.height = size;
-                const side = Math.min(img.width, img.height);
-                canvas.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
-                URL.revokeObjectURL(url);
-                resolve(canvas.toDataURL("image/jpeg", 0.85));
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = canvas.height = size;
+                    const side = Math.min(img.width, img.height);
+                    canvas.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+                    resolve(canvas.toDataURL("image/jpeg", 0.85));
+                };
+                img.onerror = () => reject(new Error("No se pudo leer la imagen."));
+                img.src = reader.result;
             };
-            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("No se pudo leer la imagen.")); };
-            img.src = url;
+            reader.readAsDataURL(file);
         });
     },
 

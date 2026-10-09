@@ -70,6 +70,9 @@ public class BankDemoService {
                 yield results;
             }
             case "COMPRA" -> List.of(sync.process(card(ref, "Éxito", 48_900, BOGOTA, now)));
+            case "TARJETA_AJENA" -> List.of(sync.process(new BankWebhookPayload("demo-" + UUID.randomUUID(), "DEMO", ref,
+                    "DEBIT", BigDecimal.valueOf(89_000), "COP", "ONLINE", "Tienda Online Desconocida", null, BOGOTA,
+                    now, "0000")));
             case "COMPRA_INUSUAL" -> List.of(sync.process(card(ref, "Joyería Diamante Real", 1_250_000, BOGOTA, now)));
             case "TRANSFER_PROPIA" -> List.of(sync.process(transfer(ref, "Mis ahorros",
                     new Counterparty(user.getName(), null, user.getCedula()), 200_000, now)));

@@ -110,7 +110,8 @@ public class BankSyncService {
             event.counterpartyRef(other.accountRef() != null ? other.accountRef() : other.document());
         }
 
-        Verdict verdict = fraud.evaluate(user, observation(event, geo));
+        Verdict verdict = worst(fraud.evaluate(user, observation(event, geo)),
+                cardCheck(link.getAccount(), p, event.getOccurredAt().toLocalDate()));
         event.risk(verdict.level().name(), verdict.reason());
 
         if (verdict.level() == Level.CRITICAL) {
@@ -179,6 +180,28 @@ public class BankSyncService {
                     event.getOccurredAt()));
         }
         return new Result(finalStatus.name(), kind.name(), event.getId(), verdict.level().name(), verdict.reason());
+    }
+
+    /**
+     * Antirrobo por tarjeta: si el banco informa con que tarjeta se hizo la compra y la cuenta tiene sus datos,
+     * una tarjeta vencida o distinta de la registrada es sospechosa. (La vencida bloquea; la distinta solo alerta.)
+     */
+    static Verdict cardCheck(com.nexorix.account.Account account, BankWebhookPayload p, java.time.LocalDate day) {
+        if (p.cardLast4() == null || p.cardLast4().isBlank() || !"DEBIT".equalsIgnoreCase(p.direction())) {
+            return new Verdict(Level.NONE, null, null, 0, 0);
+        }
+        if (account.isCardExpiredOn(day)) {
+            return new Verdict(Level.CRITICAL, "Se usó una tarjeta vencida (••" + p.cardLast4() + ").", null, 0, 0);
+        }
+        if (account.getCardLast4() != null && !account.getCardLast4().equals(p.cardLast4().trim())) {
+            return new Verdict(Level.ANOMALY, "Compra con una tarjeta (••" + p.cardLast4().trim()
+                    + ") que no es la registrada en esta cuenta (••" + account.getCardLast4() + ").", null, 0, 0);
+        }
+        return new Verdict(Level.NONE, null, null, 0, 0);
+    }
+
+    static Verdict worst(Verdict a, Verdict b) {
+        return b.level().ordinal() >= a.level().ordinal() && b.level() != Level.NONE ? b : a;
     }
 
     private void settleSplitPayment(BankEvent event, User user) {
