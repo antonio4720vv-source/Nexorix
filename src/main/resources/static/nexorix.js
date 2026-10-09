@@ -79,7 +79,7 @@ const Nexorix = {
     /** Textos de la interfaz comun (navegacion, barra Demo, ajustes). Lo demas de cada pagina sigue en espanol. */
     i18n: {
         es: {
-            "nav.panel": "Panel", "nav.contador": "Contador y reportes", "nav.compras": "Compras",
+            "nav.panel": "Panel", "nav.contador": "Contador", "nav.compras": "Compras",
             "nav.dividir": "Dividir gastos", "nav.seguridad": "Seguridad", "nav.ajustes": "Ajustes",
             "demo.label": "Demo", "demo.on": "Demo activo", "demo.title": "Modo Demo: datos de ejemplo para probar cada función.",
             "demo.load": "Cargar datos de ejemplo", "demo.exit": "Salir del demo", "demo.simulate": "Simular:",
@@ -202,7 +202,7 @@ const Nexorix = {
                 throw new Error(message);
             }
             if (!quiet) {
-                Nexorix.toast(result.data.map(x => x.status).join(", ") + ". Revisa Panel y Contador y reportes.");
+                Nexorix.toast(result.data.map(x => x.status).join(", ") + ". Revisa Panel y Contador.");
                 document.dispatchEvent(new Event("nexorix:changed"));
             }
             return result.data;
