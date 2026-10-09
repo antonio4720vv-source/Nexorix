@@ -1290,7 +1290,7 @@ body.privacy .amt {
 
 .topbar-left { display: flex; align-items: center; gap: 28px; min-width: 0; }
 
-.main-nav { display: flex; gap: 4px; }
+.main-nav { display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; }
 
 .main-nav a {
     font-size: .9rem;
@@ -1299,6 +1299,7 @@ body.privacy .amt {
     text-decoration: none;
     padding: 8px 12px;
     border-radius: 999px;
+    white-space: nowrap;
 }
 
 .main-nav a:hover { background: rgba(255, 255, 255, .08); color: var(--text); }
@@ -1989,3 +1990,7 @@ dialog::backdrop { background: rgba(2, 4, 12, .7); backdrop-filter: blur(4px); }
     .field input, .field select { height: 52px; font-size: 16px; } /* 16px evita el zoom automatico de iOS */
     .topbar { padding-top: max(12px, env(safe-area-inset-top)); }
 }
+
+.topbar { flex-wrap: wrap; row-gap: 8px; }
+.topbar .who { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; white-space: nowrap; margin-left: auto; }
+.topbar-left { flex-wrap: wrap; row-gap: 6px; gap: 16px; }
