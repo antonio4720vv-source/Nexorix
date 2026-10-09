@@ -1026,7 +1026,7 @@ body.privacy .amt {
 
 @media (max-width: 880px) {
     .text-button .long { display: none; }
-    .topbar .avatar { display: none; }
+    .topbar .avatar { display: grid; }
 }
 
 /* ============================================================
@@ -1881,13 +1881,14 @@ body.privacy .nexo .amt, body.privacy .trace-card .amt { filter: blur(7px); }
 }
 .demo-toggle[aria-pressed="true"] { background: #5ee0c5; color: #0f2a2e; border-style: solid; }
 .demo-strip {
-    background: #fbf2e1; color: #7a520d; border-bottom: 1px solid #ecd8ac; padding: 10px 24px;
+    background: linear-gradient(180deg, rgba(94,224,197,.10), rgba(94,224,197,.03)); color: var(--text);
+    border-bottom: 1px solid rgba(94,224,197,.35); padding: 12px 24px;
     font-size: .85rem;
 }
 .demo-strip p { margin: 0 0 8px; }
 .demo-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.demo-label { font-weight: 800; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; margin: 0 4px; }
-.demo-strip .text-button { color: #7a520d; }
+.demo-label { color: #5ee0c5; min-width: 128px; font-weight: 800; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; margin: 0 4px; }
+.demo-strip .text-button { color: var(--muted); margin-left: auto; }
 
    CAPA FUTURISTA (banca digital): cristal, brillo suave, acento cian-azul
    ============================================================ */
@@ -1994,3 +1995,13 @@ dialog::backdrop { background: rgba(2, 4, 12, .7); backdrop-filter: blur(4px); }
 .topbar { flex-wrap: wrap; row-gap: 8px; }
 .topbar .who { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; white-space: nowrap; margin-left: auto; }
 .topbar-left { flex-wrap: wrap; row-gap: 6px; gap: 16px; }
+
+/* ---- Barra Demo por grupos y ventana de perfil ---- */
+.demo-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.profile-top { display: flex; align-items: center; gap: 14px; margin: 4px 0 14px; }
+.avatar.big { width: 52px; height: 52px; font-size: 1.1rem; display: grid; place-items: center; border-radius: 50%; }
+.profile-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.profile-row span { color: var(--muted); }
+.profile-row strong { font-family: ui-monospace, monospace; letter-spacing: .02em; text-align: right; word-break: break-all; }
+.profile-h { margin: 18px 0 2px; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+#avatar[data-profile] { cursor: pointer; }

@@ -68,7 +68,7 @@ const Nexorix = {
     /** Barra de navegacion comun: marca la pagina actual. */
     nav(active) {
         const links = [["dashboard", "/dashboard.html", "nav.panel"], ["contador", "/contador.html", "nav.contador"],
-            ["compras", "/compras.html", "nav.compras"], ["dividir", "/dividir.html", "nav.dividir"],
+            ["dividir", "/dividir.html", "nav.dividir"],
             ["seguridad", "/seguridad.html", "nav.seguridad"], ["ajustes", "/ajustes.html", "nav.ajustes"]];
         return '<nav class="main-nav" aria-label="Secciones">' + links.map(([id, href, key]) =>
             `<a href="${href}"${id === active ? ' aria-current="page"' : ""}>${Nexorix.t(key)}</a>`).join("") + "</nav>";
@@ -80,11 +80,18 @@ const Nexorix = {
     i18n: {
         es: {
             "nav.panel": "Panel", "nav.contador": "Contador", "nav.compras": "Compras",
-            "nav.dividir": "Dividir gastos", "nav.seguridad": "Seguridad", "nav.ajustes": "Ajustes",
+            "nav.dividir": "Compras y gastos", "nav.seguridad": "Seguridad", "nav.ajustes": "Ajustes",
             "demo.label": "Demo", "demo.on": "Demo activo", "demo.title": "Modo Demo: datos de ejemplo para probar cada función.",
             "demo.load": "Cargar datos de ejemplo", "demo.exit": "Salir del demo", "demo.simulate": "Simular:",
             "demo.COMPRA": "Compra", "demo.COMPRA_INUSUAL": "Compra inusual", "demo.TRANSFER_PROPIA": "Transferencia propia",
             "demo.TRANSFER_TERCERO": "Transferencia a tercero", "demo.VIAJE_IMPOSIBLE": "Viaje imposible",
+            "demo.bank": "Banco", "demo.split": "Dividir gastos", "demo.statements": "Extractos y reportes",
+            "demo.splitRun": "Dividir una cena", "demo.importRun": "Subir extracto de ejemplo", "demo.goReports": "Ver reportes",
+            "demo.goTrace": "Ver Trace", "demo.goPurchases": "Mis compras", "demo.expense": "Registrar un gasto",
+            "profile.title": "Mi cuenta", "profile.name": "Nombre", "profile.username": "Usuario", "profile.account": "N.º de cuenta",
+            "profile.personal": "Información personal", "profile.cedula": "Cédula", "profile.phone": "Teléfono", "profile.email": "Correo",
+            "profile.kyc": "Identidad", "profile.note": "Por tu seguridad, los datos personales se muestran censurados.",
+            "profile.close": "Cerrar", "profile.none": "Sin registrar",
             "settings.title": "Ajustes", "settings.language": "Idioma", "settings.languageHelp":
                 "Cambia los menús, los botones generales y esta página. El resto del contenido sigue en español por ahora.",
             "settings.demo": "Modo Demo", "settings.demoHelp": "Muestra la barra Demo para probar cada función con datos de ejemplo.",
@@ -92,11 +99,18 @@ const Nexorix = {
         },
         en: {
             "nav.panel": "Dashboard", "nav.contador": "Accounting & reports", "nav.compras": "Purchases",
-            "nav.dividir": "Split expenses", "nav.seguridad": "Security", "nav.ajustes": "Settings",
+            "nav.dividir": "Purchases & splits", "nav.seguridad": "Security", "nav.ajustes": "Settings",
             "demo.label": "Demo", "demo.on": "Demo on", "demo.title": "Demo mode: sample data to try every feature.",
             "demo.load": "Load sample data", "demo.exit": "Exit demo", "demo.simulate": "Simulate:",
             "demo.COMPRA": "Purchase", "demo.COMPRA_INUSUAL": "Unusual purchase", "demo.TRANSFER_PROPIA": "Own transfer",
             "demo.TRANSFER_TERCERO": "Transfer to third party", "demo.VIAJE_IMPOSIBLE": "Impossible trip",
+            "demo.bank": "Bank", "demo.split": "Split expenses", "demo.statements": "Statements & reports",
+            "demo.splitRun": "Split a dinner", "demo.importRun": "Upload sample statement", "demo.goReports": "View reports",
+            "demo.goTrace": "View Trace", "demo.goPurchases": "My purchases", "demo.expense": "Log an expense",
+            "profile.title": "My account", "profile.name": "Name", "profile.username": "Username", "profile.account": "Account no.",
+            "profile.personal": "Personal information", "profile.cedula": "ID number", "profile.phone": "Phone", "profile.email": "Email",
+            "profile.kyc": "Identity", "profile.note": "For your security, personal data is shown masked.",
+            "profile.close": "Close", "profile.none": "Not set",
             "settings.title": "Settings", "settings.language": "Language", "settings.languageHelp":
                 "Changes menus, general buttons and this page. The rest of the content stays in Spanish for now.",
             "settings.demo": "Demo mode", "settings.demoHelp": "Shows the Demo bar to try each feature with sample data.",
@@ -193,6 +207,45 @@ const Nexorix = {
             Nexorix.toast("Datos de ejemplo cargados. Prueba los demás escenarios desde la barra Demo.");
         },
 
+        /** Demo de Dividir gastos: amigos de ejemplo y una cena dividida entre tres. */
+        async split() {
+            const result = await Nexorix.api("/api/split/demo", { method: "POST" });
+            if (!result.ok) throw new Error(Nexorix.errorOf(result, "No se pudo crear la división de ejemplo."));
+            Nexorix.toast("Cena dividida con Camila y Andrés. Mira \"Me deben\".");
+            if (location.pathname === "/dividir.html") location.hash = "#dividir", location.reload();
+            else location.href = "/dividir.html";
+        },
+
+        /** Sube un extracto de ejemplo a la primera cuenta y abre Contador para verlo procesar. */
+        async importSample() {
+            await Nexorix.demo.seed();
+            const accounts = await Nexorix.api("/api/accounts");
+            if (!accounts.ok || !accounts.data.length) throw new Error("Crea una cuenta primero.");
+            const file = await fetch("/demo-extracto.csv").then(r => r.blob());
+            const form = new FormData();
+            form.append("files", new File([file], "extracto-demo.csv", { type: "text/csv" }));
+            form.append("accountId", accounts.data[0].id);
+            const result = await Nexorix.api("/api/imports", { method: "POST", body: form });
+            if (!result.ok) throw new Error(Nexorix.errorOf(result, "No se pudo subir el extracto de ejemplo."));
+            try {
+                sessionStorage.setItem("nexorix.imports", JSON.stringify(result.data.map(b => b.batchId)));
+            } catch (error) { /* sin almacenamiento */ }
+            location.href = "/contador.html";
+        },
+
+        /** Registra un gasto de ejemplo (en la primera cuenta). */
+        async expense() {
+            await Nexorix.demo.seed();
+            const accounts = await Nexorix.api("/api/accounts");
+            if (!accounts.ok || !accounts.data.length) throw new Error("Crea una cuenta primero.");
+            const params = new URLSearchParams({ accountId: accounts.data[0].id, type: "EGRESO", amount: 36500,
+                description: "Almuerzo de ejemplo" });
+            const result = await Nexorix.api("/api/transactions?" + params, { method: "POST" });
+            if (!result.ok) throw new Error(Nexorix.errorOf(result, "No se pudo registrar el gasto."));
+            Nexorix.toast("Gasto registrado.");
+            document.dispatchEvent(new Event("nexorix:changed"));
+        },
+
         /** Ejecuta un escenario del simulador de banco. */
         async run(scenario, quiet) {
             const result = await Nexorix.api("/api/bank/demo/" + scenario, { method: "POST" });
@@ -250,12 +303,21 @@ const Nexorix = {
             strip.setAttribute("aria-label", Nexorix.t("demo.title"));
             topbar.after(strip);
             strip.addEventListener("click", async (event) => {
+                const link = event.target.closest("a[data-go]");
+                if (link) {
+                    Nexorix.demo.seed().catch(() => {}).finally(() => { location.href = link.dataset.go; });
+                    event.preventDefault();
+                    return;
+                }
                 const button = event.target.closest("button[data-demo]");
                 if (!button) return;
                 button.disabled = true;
                 try {
                     if (button.dataset.demo === "load") await Nexorix.demo.enable();
                     else if (button.dataset.demo === "exit") Nexorix.demo.set(false);
+                    else if (button.dataset.demo === "split") await Nexorix.demo.split();
+                    else if (button.dataset.demo === "import") await Nexorix.demo.importSample();
+                    else if (button.dataset.demo === "expense") await Nexorix.demo.expense();
                     else await Nexorix.demo.run(button.dataset.demo);
                 } catch (error) {
                     Nexorix.toast(error.message, "error");
@@ -264,12 +326,57 @@ const Nexorix = {
                 }
             });
         }
-        strip.innerHTML = `<p>${Nexorix.esc(Nexorix.t("demo.title"))}</p><div class="demo-actions">`
-            + `<button class="button small" type="button" data-demo="load">${Nexorix.esc(Nexorix.t("demo.load"))}</button>`
-            + `<span class="demo-label">${Nexorix.esc(Nexorix.t("demo.simulate"))}</span>`
-            + Nexorix.demo.scenarios.map(id => `<button class="button secondary small" type="button" data-demo="${id}">`
-                + `${Nexorix.esc(Nexorix.t("demo." + id))}</button>`).join("")
-            + `<button class="text-button" type="button" data-demo="exit">${Nexorix.esc(Nexorix.t("demo.exit"))}</button></div>`;
+        const t = (k) => Nexorix.esc(Nexorix.t(k));
+        const btn = (id, label, primary) => `<button class="button ${primary ? "" : "secondary "}small" type="button" data-demo="${id}">${label}</button>`;
+        const go = (url, label) => `<a class="button secondary small" href="${url}" data-go="${url}">${label}</a>`;
+        strip.innerHTML = `<p>${t("demo.title")}</p>`
+            + `<div class="demo-group"><span class="demo-label">${t("demo.bank")}</span>${btn("load", t("demo.load"), true)}`
+            + Nexorix.demo.scenarios.map(id => btn(id, t("demo." + id))).join("") + `</div>`
+            + `<div class="demo-group"><span class="demo-label">${t("demo.split")}</span>${btn("split", t("demo.splitRun"))}`
+            + `${btn("expense", t("demo.expense"))}${go("/dividir.html#compras", t("demo.goPurchases"))}</div>`
+            + `<div class="demo-group"><span class="demo-label">${t("demo.statements")}</span>${btn("import", t("demo.importRun"))}`
+            + `${go("/contador.html#trace", t("demo.goTrace"))}${go("/contador.html#reportes", t("demo.goReports"))}`
+            + `<button class="text-button" type="button" data-demo="exit">${t("demo.exit")}</button></div>`;
+    },
+
+    /** El avatar de la barra abre la ventana "Mi cuenta" con los datos personales censurados. */
+    mountProfile() {
+        const avatar = document.getElementById("avatar");
+        if (!avatar || avatar.dataset.profile) return;
+        avatar.dataset.profile = "1";
+        avatar.removeAttribute("aria-hidden");
+        avatar.setAttribute("role", "button");
+        avatar.setAttribute("tabindex", "0");
+        avatar.setAttribute("aria-label", Nexorix.t("profile.title"));
+        avatar.style.cursor = "pointer";
+        const open = async () => {
+            let dialog = document.getElementById("profileDialog");
+            if (!dialog) {
+                dialog = document.createElement("dialog");
+                dialog.id = "profileDialog";
+                dialog.className = "sheet";
+                dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+                document.body.appendChild(dialog);
+            }
+            const result = await Nexorix.api("/api/users/me/profile");
+            if (!result.ok) { Nexorix.toast(Nexorix.errorOf(result, "No se pudo cargar tu cuenta."), "error"); return; }
+            const p = result.data;
+            const row = (label, value) => `<div class="profile-row"><span>${Nexorix.esc(Nexorix.t(label))}</span>`
+                + `<strong>${Nexorix.esc(value || Nexorix.t("profile.none"))}</strong></div>`;
+            dialog.innerHTML = `<div class="sheet-body"><div class="sheet-head"><h2>${Nexorix.esc(Nexorix.t("profile.title"))}</h2>`
+                + `<button class="text-button" type="button" id="profileClose">${Nexorix.esc(Nexorix.t("profile.close"))}</button></div>`
+                + `<div class="profile-top"><span class="avatar big">${Nexorix.esc(Nexorix.initials(p.name))}</span>`
+                + `<div><strong>${Nexorix.esc(p.name)}</strong><br><span class="muted">@${Nexorix.esc(p.username)}</span></div></div>`
+                + row("profile.username", "@" + p.username) + row("profile.account", p.accountNumber)
+                + `<h3 class="profile-h">${Nexorix.esc(Nexorix.t("profile.personal"))}</h3>`
+                + row("profile.name", p.name) + row("profile.cedula", p.cedula) + row("profile.phone", p.phone)
+                + row("profile.email", p.email) + row("profile.kyc", p.kycStatus)
+                + `<p class="muted" style="font-size:.8rem;margin-top:14px">${Nexorix.esc(Nexorix.t("profile.note"))}</p></div>`;
+            dialog.querySelector("#profileClose").addEventListener("click", () => dialog.close());
+            dialog.showModal();
+        };
+        avatar.addEventListener("click", open);
+        avatar.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
     },
 
     /** Iconos SVG (trazo simple, heredan el color del texto). */
@@ -405,6 +512,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Idioma, boton Demo y barra Demo (comunes a todas las paginas).
     Nexorix.applyLang();
     Nexorix.mountDemo();
+    Nexorix.mountProfile();
 
     // Dibuja el logo en cualquier elemento con la clase "brand-mark".
     document.querySelectorAll(".brand-mark").forEach(mark => {

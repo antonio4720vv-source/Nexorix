@@ -74,6 +74,15 @@ public class UserController {
                 .orElseGet(() -> ResponseEntity.status(401).build());
     }
 
+    /** Datos para la ventana de perfil: lo sensible va censurado desde el servidor. */
+    @GetMapping("/me/profile")
+    public ResponseEntity<com.nexorix.dto.ProfileResponse> profile() {
+        return currentUser()
+                .map(com.nexorix.dto.ProfileResponse::fromUser)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(401).build());
+    }
+
     /** Crear el PIN justo despues de verificar la identidad (la primera vez). */
     @PostMapping("/me/pin")
     public ResponseEntity<Map<String, Object>> createPin(@RequestBody PinRequest body) {
