@@ -1,5 +1,6 @@
 package com.nexorix.config;
 
+import com.nexorix.security.IpDefense;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -56,12 +57,13 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             @Value("${nexorix.public-url:http://localhost:8080}") String publicUrl,
-            @Value("${nexorix.security.ip-limits:true}") boolean ipLimits
+            @Value("${nexorix.security.ip-limits:true}") boolean ipLimits,
+            IpDefense ipDefense
     ) throws Exception {
 
         http
-                // Limites por IP, bloqueo de solicitudes de otros sitios y cabeceras extra.
-                .addFilterBefore(new AbuseProtectionFilter(publicUrl, ipLimits), UsernamePasswordAuthenticationFilter.class)
+                // Honeypots, baneo de IP, limites por IP, bloqueo de solicitudes de otros sitios y cabeceras extra.
+                .addFilterBefore(new AbuseProtectionFilter(publicUrl, ipLimits, ipDefense), UsernamePasswordAuthenticationFilter.class)
 
                 // CSRF: la cookie de sesion es SameSite=Lax y AbuseProtectionFilter rechaza
                 // solicitudes que cambian datos desde otros sitios (Origin / Sec-Fetch-Site).

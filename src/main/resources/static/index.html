@@ -73,6 +73,12 @@
     <main class="access-form">
         <form class="form-card" id="registerForm" novalidate>
 
+            <!-- Trampa para bots: oculta, una persona nunca la llena. -->
+            <div class="hp-field" aria-hidden="true">
+                <label for="nx_website">No llenes este campo</label>
+                <input id="nx_website" name="nx_website" type="text" tabindex="-1" autocomplete="off">
+            </div>
+
             <h2>Crea tu cuenta</h2>
             <p class="lead">
                 ¿Ya tienes una? <a href="/login.html">Inicia sesión</a>
@@ -278,5 +284,8 @@
     });
 </script>
 
+
+<!-- Enlace trampa: oculto para personas. Solo los bots que rastrean el HTML lo siguen. -->
+<a class="hp-field" href="/admin-panel" tabindex="-1" aria-hidden="true" rel="nofollow">Administración</a>
 </body>
 </html>

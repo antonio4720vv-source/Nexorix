@@ -48,6 +48,9 @@
 /* "hidden" siempre oculta, aunque la clase diga otra cosa. */
 [hidden] { display: none !important; }
 
+/* Trampas para bots (honeypots): nunca se ven. */
+.hp-field { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {

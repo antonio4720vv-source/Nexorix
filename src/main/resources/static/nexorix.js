@@ -587,6 +587,12 @@ const Nexorix = {
                 "Content-Type": "application/json",
                 ...(options.headers || {})
             };
+            // Campo trampa: vacio para una persona; un bot que llena todos los campos lo delata.
+            const trap = document.getElementById("nx_website");
+            const guarded = ["/api/auth/login", "/api/users", "/api/recovery/start"].includes(path);
+            if (trap && guarded && options.json && typeof options.json === "object" && !Array.isArray(options.json)) {
+                options.json = { ...options.json, nx_website: trap.value };
+            }
             settings.body = JSON.stringify(options.json);
             delete settings.json;
         }

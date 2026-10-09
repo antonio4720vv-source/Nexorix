@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin-panel
+Disallow: /administrator
+Disallow: /wp-admin
+Disallow: /wp-login.php
+Disallow: /phpmyadmin
+Disallow: /backup.sql
+Disallow: /.env
