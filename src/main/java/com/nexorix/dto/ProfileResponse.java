@@ -6,7 +6,7 @@ import java.util.Locale;
 
 /** Datos de la cuenta para la ventana de perfil. Lo sensible sale ya censurado: nunca viaja completo. */
 public record ProfileResponse(String name, String username, String accountNumber, String email,
-                              String cedula, String phone, String kycStatus) {
+                              String cedula, String phone, String kycStatus, String photo) {
 
     public static ProfileResponse fromUser(User user) {
         return new ProfileResponse(
@@ -16,7 +16,8 @@ public record ProfileResponse(String name, String username, String accountNumber
                 maskEmail(user.getEmail()),
                 maskKeepEnds(user.getCedula(), 2, 2),
                 maskPhone(user.getSecurityPhone()),
-                user.getKycStatus().name());
+                user.getKycStatus().name(),
+                user.getPhoto());
     }
 
     /** "NX-1A2B3C4D": las primeras 8 letras o numeros del identificador publico. */

@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -81,6 +82,35 @@ public class UserController {
                 .map(com.nexorix.dto.ProfileResponse::fromUser)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(401).build());
+    }
+
+    public record PhotoRequest(String image) {
+    }
+
+    private static final java.util.regex.Pattern PHOTO =
+            java.util.regex.Pattern.compile("^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$");
+
+    /** Guarda la foto de perfil (el navegador ya la reduce; aqui se limita el tipo y el peso). */
+    @PostMapping("/me/photo")
+    public ResponseEntity<?> savePhoto(@RequestBody PhotoRequest body) {
+        Optional<User> user = currentUser();
+        if (user.isEmpty()) return ResponseEntity.status(401).build();
+        String image = body == null ? null : body.image();
+        if (image == null || image.length() > 300_000 || !PHOTO.matcher(image).matches()) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", "La foto debe ser JPG, PNG o WEBP y pesar poco."));
+        }
+        user.get().setPhoto(image);
+        userRepository.save(user.get());
+        return ResponseEntity.ok(java.util.Map.of("ok", true));
+    }
+
+    @DeleteMapping("/me/photo")
+    public ResponseEntity<?> deletePhoto() {
+        Optional<User> user = currentUser();
+        if (user.isEmpty()) return ResponseEntity.status(401).build();
+        user.get().setPhoto(null);
+        userRepository.save(user.get());
+        return ResponseEntity.ok(java.util.Map.of("ok", true));
     }
 
     /** Crear el PIN justo despues de verificar la identidad (la primera vez). */

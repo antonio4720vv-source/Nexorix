@@ -85,13 +85,14 @@ const Nexorix = {
             "demo.load": "Cargar datos de ejemplo", "demo.exit": "Salir del demo", "demo.simulate": "Simular:",
             "demo.COMPRA": "Compra", "demo.COMPRA_INUSUAL": "Compra inusual", "demo.TRANSFER_PROPIA": "Transferencia propia",
             "demo.TRANSFER_TERCERO": "Transferencia a tercero", "demo.VIAJE_IMPOSIBLE": "Viaje imposible",
+            "demo.tools": "Herramientas de demo", "demo.toolsOpen": "Dinero y movimientos…", "demo.account": "Cuenta", "demo.amount": "Monto a agregar", "demo.password": "Clave de demo", "demo.addMoney": "Agregar dinero", "demo.resetMoney": "Reiniciar dinero", "demo.resetTx": "Reiniciar movimientos de la cuenta",
             "demo.bank": "Banco", "demo.split": "Dividir gastos", "demo.statements": "Extractos y reportes",
             "demo.splitRun": "Dividir una cena", "demo.importRun": "Subir extracto de ejemplo", "demo.goReports": "Ver reportes",
             "demo.goTrace": "Ver Trace", "demo.goPurchases": "Mis compras", "demo.expense": "Registrar un gasto",
             "profile.title": "Mi cuenta", "profile.name": "Nombre", "profile.username": "Usuario", "profile.account": "N.º de cuenta",
             "profile.personal": "Información personal", "profile.cedula": "Cédula", "profile.phone": "Teléfono", "profile.email": "Correo",
             "profile.kyc": "Identidad", "profile.note": "Por tu seguridad, los datos personales se muestran censurados.",
-            "profile.close": "Cerrar", "profile.none": "Sin registrar",
+            "profile.close": "Cerrar", "profile.changePhoto": "Cambiar foto", "profile.removePhoto": "Quitar foto", "profile.photoSaved": "Foto actualizada.", "profile.none": "Sin registrar",
             "settings.title": "Ajustes", "settings.language": "Idioma", "settings.languageHelp":
                 "Cambia los menús, los botones generales y esta página. El resto del contenido sigue en español por ahora.",
             "settings.demo": "Modo Demo", "settings.demoHelp": "Muestra la barra Demo para probar cada función con datos de ejemplo.",
@@ -104,13 +105,14 @@ const Nexorix = {
             "demo.load": "Load sample data", "demo.exit": "Exit demo", "demo.simulate": "Simulate:",
             "demo.COMPRA": "Purchase", "demo.COMPRA_INUSUAL": "Unusual purchase", "demo.TRANSFER_PROPIA": "Own transfer",
             "demo.TRANSFER_TERCERO": "Transfer to third party", "demo.VIAJE_IMPOSIBLE": "Impossible trip",
+            "demo.tools": "Demo tools", "demo.toolsOpen": "Money and transactions…", "demo.account": "Account", "demo.amount": "Amount to add", "demo.password": "Demo password", "demo.addMoney": "Add money", "demo.resetMoney": "Reset money", "demo.resetTx": "Reset account transactions",
             "demo.bank": "Bank", "demo.split": "Split expenses", "demo.statements": "Statements & reports",
             "demo.splitRun": "Split a dinner", "demo.importRun": "Upload sample statement", "demo.goReports": "View reports",
             "demo.goTrace": "View Trace", "demo.goPurchases": "My purchases", "demo.expense": "Log an expense",
             "profile.title": "My account", "profile.name": "Name", "profile.username": "Username", "profile.account": "Account no.",
             "profile.personal": "Personal information", "profile.cedula": "ID number", "profile.phone": "Phone", "profile.email": "Email",
             "profile.kyc": "Identity", "profile.note": "For your security, personal data is shown masked.",
-            "profile.close": "Close", "profile.none": "Not set",
+            "profile.close": "Close", "profile.changePhoto": "Change photo", "profile.removePhoto": "Remove photo", "profile.photoSaved": "Photo updated.", "profile.none": "Not set",
             "settings.title": "Settings", "settings.language": "Language", "settings.languageHelp":
                 "Changes menus, general buttons and this page. The rest of the content stays in Spanish for now.",
             "settings.demo": "Demo mode", "settings.demoHelp": "Shows the Demo bar to try each feature with sample data.",
@@ -198,6 +200,11 @@ const Nexorix = {
                 { name: "Nequi (ejemplo)", bank: "Nequi", type: "BILLETERA", balance: 3000000 });
             await create("/api/accounts",
                 { name: "Davivienda (ejemplo)", bank: "Davivienda", type: "AHORROS", balance: 0 });
+            await create("/api/accounts",
+                { name: "Visa débito (ejemplo)", bank: "Bancolombia", type: "DEBITO", balance: 800000, cardLast4: "4321" });
+            await create("/api/accounts",
+                { name: "Mastercard crédito (ejemplo)", bank: "Davivienda", type: "CREDITO", balance: 1500000,
+                  creditLimit: 2000000, cardLast4: "9876" });
             await create("/api/transactions",
                 { accountId: nequi.id, type: "INGRESO", amount: 3000000, description: "Salario" });
 
@@ -244,6 +251,43 @@ const Nexorix = {
             if (!result.ok) throw new Error(Nexorix.errorOf(result, "No se pudo registrar el gasto."));
             Nexorix.toast("Gasto registrado.");
             document.dispatchEvent(new Event("nexorix:changed"));
+        },
+
+        /** Herramientas de demo con clave: agregar dinero, reiniciar dinero y reiniciar movimientos de una cuenta. */
+        async admin() {
+            const accounts = await Nexorix.api("/api/accounts");
+            if (!accounts.ok || !accounts.data.length) throw new Error("Crea una cuenta primero.");
+            let dialog = document.getElementById("demoAdminDialog");
+            if (dialog) dialog.remove();
+            dialog = document.createElement("dialog");
+            dialog.id = "demoAdminDialog";
+            dialog.className = "sheet";
+            dialog.innerHTML = `<div class="sheet-body"><div class="sheet-head"><h2>${Nexorix.esc(Nexorix.t("demo.tools"))}</h2>`
+                + `<button class="text-button" type="button" data-x>${Nexorix.esc(Nexorix.t("profile.close"))}</button></div>`
+                + `<div class="field"><label for="daAccount">${Nexorix.esc(Nexorix.t("demo.account"))}</label><select id="daAccount">`
+                + accounts.data.map(a => `<option value="${a.id}">${Nexorix.esc(a.name)}</option>`).join("") + `</select></div>`
+                + `<div class="field"><label for="daAmount">${Nexorix.esc(Nexorix.t("demo.amount"))}</label>`
+                + `<input id="daAmount" inputmode="numeric" placeholder="$ 0" autocomplete="off"></div>`
+                + `<div class="field"><label for="daPass">${Nexorix.esc(Nexorix.t("demo.password"))}</label>`
+                + `<input id="daPass" type="password" autocomplete="off"></div>`
+                + `<div class="demo-group"><button class="button small" type="button" data-act="add">${Nexorix.esc(Nexorix.t("demo.addMoney"))}</button>`
+                + `<button class="button secondary small" type="button" data-act="money">${Nexorix.esc(Nexorix.t("demo.resetMoney"))}</button>`
+                + `<button class="button secondary small" type="button" data-act="tx">${Nexorix.esc(Nexorix.t("demo.resetTx"))}</button></div>`
+                + `<p class="notice" id="daMsg" role="status" aria-live="polite"></p></div>`;
+            document.body.appendChild(dialog);
+            dialog.addEventListener("click", async (e) => {
+                if (e.target === dialog || e.target.dataset.x !== undefined) { dialog.close(); return; }
+                const act = e.target.dataset.act;
+                if (!act) return;
+                const body = { password: dialog.querySelector("#daPass").value,
+                    accountId: Number(dialog.querySelector("#daAccount").value),
+                    amount: Nexorix.parseMoney(dialog.querySelector("#daAmount").value || "0") };
+                const path = { add: "add-money", money: "reset-money", tx: "reset-transactions" }[act];
+                const r = await Nexorix.api("/api/bank/demo-admin/" + path, { method: "POST", json: body });
+                Nexorix.say(dialog.querySelector("#daMsg"), r.ok ? "Listo ✔" : Nexorix.errorOf(r, "No se pudo."), r.ok ? "ok" : "error");
+                if (r.ok) document.dispatchEvent(new Event("nexorix:changed"));
+            });
+            dialog.showModal();
         },
 
         /** Ejecuta un escenario del simulador de banco. */
@@ -317,6 +361,7 @@ const Nexorix = {
                     else if (button.dataset.demo === "exit") Nexorix.demo.set(false);
                     else if (button.dataset.demo === "split") await Nexorix.demo.split();
                     else if (button.dataset.demo === "import") await Nexorix.demo.importSample();
+                    else if (button.dataset.demo === "admin") await Nexorix.demo.admin();
                     else if (button.dataset.demo === "expense") await Nexorix.demo.expense();
                     else await Nexorix.demo.run(button.dataset.demo);
                 } catch (error) {
@@ -336,7 +381,40 @@ const Nexorix = {
             + `${btn("expense", t("demo.expense"))}${go("/dividir.html#compras", t("demo.goPurchases"))}</div>`
             + `<div class="demo-group"><span class="demo-label">${t("demo.statements")}</span>${btn("import", t("demo.importRun"))}`
             + `${go("/contador.html#trace", t("demo.goTrace"))}${go("/contador.html#reportes", t("demo.goReports"))}`
+            + `<div class="demo-group"><span class="demo-label">${t("demo.tools")}</span>${btn("admin", t("demo.toolsOpen"))}</div>`
             + `<button class="text-button" type="button" data-demo="exit">${t("demo.exit")}</button></div>`;
+    },
+
+    /** Pone la foto como fondo del avatar (o la quita y vuelven las iniciales). */
+    paintPhoto(el, image) {
+        if (!el) return;
+        if (image) {
+            el.style.backgroundImage = `url("${image}")`;
+            el.style.backgroundSize = "cover";
+            el.style.backgroundPosition = "center";
+            el.style.color = "transparent";
+            el.style.fontSize = "0";
+        } else {
+            ["backgroundImage", "backgroundSize", "backgroundPosition", "color", "fontSize"].forEach(k => el.style[k] = "");
+        }
+    },
+
+    /** Reduce una imagen a un cuadrado de `size` px (JPEG) para guardarla liviana. */
+    shrinkImage(file, size) {
+        return new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = canvas.height = size;
+                const side = Math.min(img.width, img.height);
+                canvas.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+                URL.revokeObjectURL(url);
+                resolve(canvas.toDataURL("image/jpeg", 0.85));
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("No se pudo leer la imagen.")); };
+            img.src = url;
+        });
     },
 
     /** El avatar de la barra abre la ventana "Mi cuenta" con los datos personales censurados. */
@@ -365,17 +443,41 @@ const Nexorix = {
                 + `<strong>${Nexorix.esc(value || Nexorix.t("profile.none"))}</strong></div>`;
             dialog.innerHTML = `<div class="sheet-body"><div class="sheet-head"><h2>${Nexorix.esc(Nexorix.t("profile.title"))}</h2>`
                 + `<button class="text-button" type="button" id="profileClose">${Nexorix.esc(Nexorix.t("profile.close"))}</button></div>`
-                + `<div class="profile-top"><span class="avatar big">${Nexorix.esc(Nexorix.initials(p.name))}</span>`
-                + `<div><strong>${Nexorix.esc(p.name)}</strong><br><span class="muted">@${Nexorix.esc(p.username)}</span></div></div>`
+                + `<div class="profile-top"><span class="avatar big" id="profilePhoto">${Nexorix.esc(Nexorix.initials(p.name))}</span>`
+                + `<div><strong>${Nexorix.esc(p.name)}</strong><br><span class="muted">@${Nexorix.esc(p.username)}</span><br>`
+                + `<label class="text-button" style="cursor:pointer">${Nexorix.esc(Nexorix.t("profile.changePhoto"))}`
+                + `<input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" hidden></label>`
+                + (p.photo ? ` · <button class="text-button" type="button" id="photoRemove">${Nexorix.esc(Nexorix.t("profile.removePhoto"))}</button>` : "")
+                + `</div></div>`
                 + row("profile.username", "@" + p.username) + row("profile.account", p.accountNumber)
                 + `<h3 class="profile-h">${Nexorix.esc(Nexorix.t("profile.personal"))}</h3>`
                 + row("profile.name", p.name) + row("profile.cedula", p.cedula) + row("profile.phone", p.phone)
                 + row("profile.email", p.email) + row("profile.kyc", p.kycStatus)
                 + `<p class="muted" style="font-size:.8rem;margin-top:14px">${Nexorix.esc(Nexorix.t("profile.note"))}</p></div>`;
             dialog.querySelector("#profileClose").addEventListener("click", () => dialog.close());
+            Nexorix.paintPhoto(dialog.querySelector("#profilePhoto"), p.photo);
+            dialog.querySelector("#photoInput").addEventListener("change", async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                try {
+                    const image = await Nexorix.shrinkImage(file, 256);
+                    const r = await Nexorix.api("/api/users/me/photo", { method: "POST", json: { image } });
+                    if (!r.ok) throw new Error(Nexorix.errorOf(r, "No se pudo guardar la foto."));
+                    Nexorix.paintPhoto(avatar, image);
+                    Nexorix.paintPhoto(dialog.querySelector("#profilePhoto"), image);
+                    Nexorix.toast(Nexorix.t("profile.photoSaved"));
+                } catch (error) { Nexorix.toast(error.message, "error"); }
+            });
+            const remove = dialog.querySelector("#photoRemove");
+            if (remove) remove.addEventListener("click", async () => {
+                await Nexorix.api("/api/users/me/photo", { method: "DELETE" });
+                Nexorix.paintPhoto(avatar, null);
+                dialog.close();
+            });
             dialog.showModal();
         };
         avatar.addEventListener("click", open);
+        Nexorix.api("/api/users/me/profile").then(r => { if (r.ok) Nexorix.paintPhoto(avatar, r.data.photo); });
         avatar.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
     },
 

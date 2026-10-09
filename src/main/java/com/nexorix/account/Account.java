@@ -25,6 +25,14 @@ public class Account {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal balance;
 
+    /** Solo tarjetas de credito: el cupo total. En CREDITO, "balance" es el cupo disponible. */
+    @Column(name = "credit_limit", precision = 19, scale = 2)
+    private BigDecimal creditLimit;
+
+    /** Ultimos 4 digitos de la tarjeta (debito o credito), si la persona los puso. */
+    @Column(name = "card_last4", length = 4)
+    private String cardLast4;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -74,6 +82,39 @@ public class Account {
 
     public void setBalance(BigDecimal balance) {
         this.balance = balance;
+    }
+
+    public BigDecimal getCreditLimit() {
+        return creditLimit;
+    }
+
+    public void setCreditLimit(BigDecimal creditLimit) {
+        this.creditLimit = creditLimit;
+    }
+
+    public String getCardLast4() {
+        return cardLast4;
+    }
+
+    public void setCardLast4(String cardLast4) {
+        this.cardLast4 = cardLast4;
+    }
+
+    public boolean isCredit() {
+        return "CREDITO".equals(type);
+    }
+
+    /**
+     * Aplica un cambio de saldo sin dejarlo nunca por debajo de cero (ni, en credito, por encima
+     * del cupo). Devuelve el saldo resultante.
+     */
+    public BigDecimal applyClamped(BigDecimal delta) {
+        BigDecimal next = balance.add(delta).max(BigDecimal.ZERO);
+        if (isCredit() && creditLimit != null) {
+            next = next.min(creditLimit);
+        }
+        balance = next;
+        return next;
     }
 
     public User getUser() {

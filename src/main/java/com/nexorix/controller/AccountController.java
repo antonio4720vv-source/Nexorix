@@ -26,7 +26,9 @@ public class AccountController {
             @RequestParam String name,
             @RequestParam String type,
             @RequestParam String bank,
-            @RequestParam BigDecimal balance
+            @RequestParam BigDecimal balance,
+            @RequestParam(required = false) BigDecimal creditLimit,
+            @RequestParam(required = false) String cardLast4
     ) {
 
         Authentication authentication =
@@ -46,7 +48,9 @@ public class AccountController {
                 type,
                 bank,
                 balance,
-                username
+                username,
+                creditLimit,
+                cardLast4
         );
 
         return ResponseEntity.ok(

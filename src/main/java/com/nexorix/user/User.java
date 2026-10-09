@@ -96,6 +96,10 @@ public class User {
     @Column(name = "security_phone", length = 400)
     private String securityPhone;
 
+    /** Foto de perfil: imagen JPEG/PNG/WEBP ya reducida, como data URL. */
+    @Column(name = "photo", columnDefinition = "text")
+    private String photo;
+
     protected User() {
     }
 
@@ -202,6 +206,14 @@ public class User {
 
     public void setWhatsappNotificationsEnabled(boolean enabled) {
         this.whatsappNotificationsEnabled = enabled;
+    }
+
+    public String getPhoto() {
+        return photo;
+    }
+
+    public void setPhoto(String photo) {
+        this.photo = photo;
     }
 
     public String getSecurityPhone() {

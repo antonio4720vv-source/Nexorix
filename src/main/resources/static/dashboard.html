@@ -61,7 +61,7 @@
 
     <!-- Lo principal: el dinero real -->
     <section class="truth" id="truthPanel" aria-labelledby="truthSentence">
-        <p class="truth-period">Tu dinero real</p>
+        <p class="truth-period">Tu dinero real · este mes <a href="/contador.html#reportes" style="margin-left:8px">ver otros meses</a></p>
         <p class="sentence" id="truthSentence">Calculando...</p>
         <p class="aside" id="truthAside"></p>
 
@@ -169,7 +169,7 @@
             <h2 id="accountSheetTitle">Agregar cuenta</h2>
             <button class="close-button" type="button" data-close aria-label="Cerrar">&times;</button>
         </div>
-        <p class="lead">Una cuenta o billetera que ya tienes en tu banco.</p>
+        <p class="lead">Una cuenta, billetera o tarjeta (débito o crédito) que ya tienes.</p>
 
         <div class="field">
             <label for="accountBank">Banco o billetera</label>
@@ -192,14 +192,28 @@
                     <option value="AHORROS">Ahorros</option>
                     <option value="CORRIENTE">Corriente</option>
                     <option value="BILLETERA">Billetera digital</option>
+                    <option value="DEBITO">Tarjeta débito</option>
+                    <option value="CREDITO">Tarjeta de crédito</option>
                 </select>
             </div>
             <div class="field">
-                <label for="accountBalance">Saldo actual</label>
+                <label for="accountBalance" id="accountBalanceLabel">Saldo actual</label>
                 <input id="accountBalance" inputmode="numeric" placeholder="0" required>
             </div>
         </div>
         <p class="money-preview" id="accountBalancePreview"></p>
+        <div class="row" id="cardFields" hidden>
+            <div class="field">
+                <label for="creditLimit">Cupo total de la tarjeta</label>
+                <input id="creditLimit" inputmode="numeric" placeholder="0" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="cardLast4">Últimos 4 dígitos (opcional)</label>
+                <input id="cardLast4" inputmode="numeric" maxlength="4" placeholder="1234" autocomplete="off">
+            </div>
+        </div>
+        <p class="muted" style="font-size:.8rem;margin:0">Ninguna cuenta puede quedar en negativo. En una tarjeta de crédito el
+           “saldo” es el <strong>cupo disponible</strong>; lo que gastas lo baja y lo que pagas lo sube.</p>
 
         <div class="sheet-actions">
             <button class="button" type="submit" id="accountSubmit">Guardar cuenta</button>
@@ -356,6 +370,13 @@
         }
     }
 
+    $("accountType").addEventListener("change", () => {
+        const type = $("accountType").value;
+        $("cardFields").hidden = !["DEBITO", "CREDITO"].includes(type);
+        $("creditLimit").parentElement.hidden = type !== "CREDITO";
+        $("accountBalanceLabel").textContent = type === "CREDITO" ? "Cupo disponible" : "Saldo actual";
+    });
+
     $("accountForm").addEventListener("submit", (event) => {
         event.preventDefault();
         const balance = Nexorix.parseMoney($("accountBalance").value || "0");
@@ -363,12 +384,20 @@
             Nexorix.toast("Escribe el banco y un nombre para la cuenta.", "error");
             return;
         }
-        submitForm($("accountSubmit"), "/api/accounts", {
+        const params = {
             name: $("accountName").value.trim(),
             bank: $("accountBank").value.trim(),
             type: $("accountType").value,
             balance: isNaN(balance) ? 0 : balance
-        }, "Cuenta agregada.", "accountSheet");
+        };
+        if (params.type === "CREDITO") {
+            const limit = Nexorix.parseMoney($("creditLimit").value || "0");
+            params.creditLimit = isNaN(limit) || limit <= 0 ? params.balance : limit;
+        }
+        if (["DEBITO", "CREDITO"].includes(params.type) && $("cardLast4").value.trim()) {
+            params.cardLast4 = $("cardLast4").value.trim();
+        }
+        submitForm($("accountSubmit"), "/api/accounts", params, "Cuenta agregada.", "accountSheet");
     });
 
     $("movementForm").addEventListener("submit", (event) => {
@@ -539,6 +568,8 @@
                     ${esc(String(bank || "?").charAt(0).toUpperCase())}</span>`;
     }
 
+    const TYPE_LABEL = { DEBITO: "Tarjeta débito", CREDITO: "Tarjeta de crédito (disponible)", BILLETERA: "Billetera" };
+
     function renderAccounts(data) {
         $("totalBalance").textContent = money(data.totalBalance);
 
@@ -552,7 +583,7 @@
                 ${bankChip(account.bank)}
                 <div>
                     <div class="title">${esc(account.name)}</div>
-                    <div class="meta">${esc(account.bank)}</div>
+                    <div class="meta">${esc(account.bank)}${TYPE_LABEL[account.type] ? " · " + TYPE_LABEL[account.type] : ""}${account.cardLast4 ? " ···· " + esc(account.cardLast4) : ""}${account.type === "CREDITO" && account.creditLimit ? " · cupo " + money(account.creditLimit) : ""}</div>
                 </div>
                 <div class="amount">${amt(account.balance)}</div>
             </div>`).join("");

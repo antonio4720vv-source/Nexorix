@@ -132,10 +132,16 @@ public class TransactionService {
         transaction.setSource("MANUAL");
 
         if (cleanType.equals("INGRESO")) {
+            if (account.isCredit() && account.getCreditLimit() != null
+                    && account.getBalance().add(cleanAmount).compareTo(account.getCreditLimit()) > 0) {
+                throw new IllegalArgumentException("El pago supera lo que debes en la tarjeta de crédito.");
+            }
             account.setBalance(account.getBalance().add(cleanAmount));
         } else {
             if (account.getBalance().compareTo(cleanAmount) < 0) {
-                throw new IllegalArgumentException("Saldo insuficiente para realizar el egreso.");
+                throw new IllegalArgumentException(account.isCredit()
+                        ? "El cupo disponible de la tarjeta no alcanza para este gasto."
+                        : "Saldo insuficiente para realizar el egreso.");
             }
             account.setBalance(account.getBalance().subtract(cleanAmount));
         }
@@ -186,8 +192,8 @@ public class TransactionService {
         Transaction transaction = new Transaction(clean, type, description, transactionDate, account, reference);
         transaction.setCategory(TransactionClassifier.classify(description, type));
         transaction.setSource("BANK");
-        account.setBalance(type.equals("INGRESO")
-                ? account.getBalance().add(clean) : account.getBalance().subtract(clean));
+        // El saldo nunca baja de cero (ni en credito pasa del cupo): el banco manda, pero no hay dinero negativo.
+        account.applyClamped(type.equals("INGRESO") ? clean : clean.negate());
         accountRepository.save(account);
         return transactionRepository.save(transaction);
     }

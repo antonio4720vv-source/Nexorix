@@ -3,6 +3,7 @@ package com.nexorix.banking;
 import com.nexorix.account.Account;
 import com.nexorix.account.AccountRepository;
 import com.nexorix.user.User;
+import com.nexorix.whatsapp.WhatsappLinkRepository;
 import com.nexorix.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -32,13 +33,15 @@ public class BankLinkService {
     private final BankEventRepository events;
     private final AccountRepository accounts;
     private final UserRepository users;
+    private final WhatsappLinkRepository whatsapp;
 
     public BankLinkService(BankLinkRepository links, BankEventRepository events, AccountRepository accounts,
-                           UserRepository users) {
+                           UserRepository users, WhatsappLinkRepository whatsapp) {
         this.links = links;
         this.events = events;
         this.accounts = accounts;
         this.users = users;
+        this.whatsapp = whatsapp;
     }
 
     @Transactional(readOnly = true)
@@ -52,7 +55,20 @@ public class BankLinkService {
     /** En produccion externalRef lo da el agregador al conectar el banco; en la demo se genera si falta. */
     @Transactional
     public LinkView link(String username, Long accountId, String bank, String externalRef) {
+        return link(username, accountId, bank, externalRef, null);
+    }
+
+    /**
+     * Vincular una cuenta REAL (viene con la referencia del agregador) exige que el celular
+     * registrado en el banco sea el de la misma persona: el de WhatsApp verificado o el de seguridad.
+     * Sin referencia (demo) no se pide.
+     */
+    @Transactional
+    public LinkView link(String username, Long accountId, String bank, String externalRef, String bankPhone) {
         User user = user(username);
+        if (externalRef != null && !externalRef.isBlank()) {
+            verifySamePerson(user, bankPhone);
+        }
         Account account = accounts.findById(accountId == null ? -1L : accountId)
                 .filter(a -> a.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new IllegalArgumentException("Cuenta no encontrada."));
@@ -71,6 +87,23 @@ public class BankLinkService {
         }
         BankLink saved = links.save(new BankLink(user, account, cleanBank, ref));
         return new LinkView(saved.getId(), account.getId(), account.getName(), cleanBank, ref);
+    }
+
+    private void verifySamePerson(User user, String bankPhone) {
+        if (bankPhone == null || bankPhone.isBlank()) {
+            throw new IllegalArgumentException("Escribe el celular registrado en tu banco para verificar que la cuenta es tuya.");
+        }
+        List<String> mine = new java.util.ArrayList<>();
+        if (user.getSecurityPhone() != null) mine.add(user.getSecurityPhone());
+        whatsapp.findByUserId(user.getId()).filter(w -> w.isVerified()).ifPresent(w -> mine.add(w.getPhone()));
+        if (mine.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Primero registra y verifica tu celular (Seguridad o Compras) para vincular un banco real.");
+        }
+        if (mine.stream().noneMatch(phone -> PhoneMatcher.same(phone, bankPhone))) {
+            throw new IllegalArgumentException(
+                    "El celular del banco no coincide con el tuyo. Solo puedes vincular cuentas que sean tuyas.");
+        }
     }
 
     @Transactional(readOnly = true)

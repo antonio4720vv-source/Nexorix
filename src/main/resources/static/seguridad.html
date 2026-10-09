@@ -63,6 +63,10 @@
         <div id="links"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
             <div class="field"><label for="accountSelect">Cuenta de Nexorix</label><select id="accountSelect"></select></div>
+            <div class="field"><label for="bankRef">Referencia de la cuenta en el banco (solo cuentas reales)</label>
+                <input id="bankRef" maxlength="100" placeholder="Déjalo vacío para la demo" autocomplete="off"></div>
+            <div class="field"><label for="bankPhone">Celular registrado en el banco (se verifica que sea el tuyo)</label>
+                <input id="bankPhone" type="tel" maxlength="20" placeholder="+57 300 123 4567" autocomplete="off"></div>
             <button class="button secondary" id="linkAccount" type="button">Vincular al banco</button>
         </div>
         <p id="linkMsg"></p>
@@ -191,7 +195,7 @@
     $("linkAccount").addEventListener("click", async () => {
         const accountId = Number($("accountSelect").value);
         if (!accountId) { $("linkMsg").textContent = "No hay cuentas por vincular."; return; }
-        const r = await post("/api/bank/links", { accountId });
+        const r = await post("/api/bank/links", { accountId, externalRef: $("bankRef").value.trim() || null, phone: $("bankPhone").value.trim() || null });
         $("linkMsg").textContent = r.ok ? "Vinculada ✔" : Nexorix.errorOf(r, "No se pudo vincular.");
         loadLinks();
     });

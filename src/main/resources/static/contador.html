@@ -128,7 +128,7 @@
     <div id="viewReportes" role="tabpanel" aria-labelledby="tabReportes" hidden class="stack" style="margin-top:0">
         <div class="page-head">
             <div>
-                <h2>Reportes conciliados</h2>
+                <h2>Tu dinero real</h2>
                 <p>Listos para tu contador o tu declaración de renta: muestran tus ingresos y gastos <strong>reales</strong>
                    y dejan por fuera el dinero que solo se movió entre tus cuentas.</p>
             </div>
@@ -142,6 +142,7 @@
                 <button type="button" data-preset="lastYear" aria-pressed="false">Año pasado (renta)</button>
                 <button type="button" data-preset="all" aria-pressed="false">Todo</button>
             </div>
+            <div class="field"><label for="month">Elegir un mes</label><input type="month" id="month"></div>
             <div class="row">
                 <div class="field"><label for="from">Desde</label><input type="date" id="from"></div>
                 <div class="field"><label for="to">Hasta</label><input type="date" id="to"></div>
@@ -700,7 +701,18 @@
         }
 
         $("presets").querySelectorAll("button").forEach(b => b.addEventListener("click", () => setPreset(b.dataset.preset)));
+        $("month").addEventListener("change", () => {
+            const value = $("month").value;
+            if (!value) return;
+            const [y, m] = value.split("-").map(Number);
+            const pad = (n) => String(n).padStart(2, "0");
+            $("from").value = `${y}-${pad(m)}-01`;
+            $("to").value = `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`;
+            $("presets").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", "false"));
+            refresh();
+        });
         ["from", "to"].forEach(id => $(id).addEventListener("change", () => {
+            $("month").value = "";
             $("presets").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", "false"));
             refresh();
         }));
