@@ -422,6 +422,50 @@ const Nexorix = {
     },
 
     /** El avatar de la barra abre la ventana "Mi cuenta" con los datos personales censurados. */
+    /**
+     * Celular: la navegacion (Panel, Contador, Seguridad, Ajustes...), el modo Demo y Salir van en un menu
+     * de tres lineas. En computador el boton no se ve y la barra queda como siempre.
+     */
+    mountMenu() {
+        const who = document.querySelector(".topbar .who");
+        if (!who || document.getElementById("menuButton")) return;
+        const button = document.createElement("button");
+        button.id = "menuButton";
+        button.type = "button";
+        button.className = "menu-button";
+        button.setAttribute("aria-label", "Menú");
+        button.setAttribute("aria-expanded", "false");
+        button.innerHTML = Nexorix.icon("menu");
+        who.appendChild(button);
+
+        const close = () => {
+            document.getElementById("menuPanel")?.remove();
+            button.setAttribute("aria-expanded", "false");
+        };
+        button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            if (document.getElementById("menuPanel")) { close(); return; }
+            const links = [...document.querySelectorAll(".main-nav a")].map(a =>
+                `<a href="${a.getAttribute("href")}"${a.getAttribute("aria-current") ? ' aria-current="page"' : ""}>${a.textContent}</a>`).join("");
+            const demo = document.getElementById("demoToggle");
+            const panel = document.createElement("div");
+            panel.id = "menuPanel";
+            panel.className = "menu-panel";
+            panel.innerHTML = `<nav aria-label="Secciones">${links}</nav>`
+                + (demo ? `<button type="button" data-act="demo">${demo.textContent}</button>` : "")
+                + '<button type="button" data-act="logout" class="danger">Salir</button>';
+            panel.addEventListener("click", (e) => {
+                const act = e.target.closest("button")?.dataset.act;
+                if (act === "demo") { demo.click(); close(); }
+                if (act === "logout") document.getElementById("logoutButton")?.click();
+            });
+            document.querySelector(".topbar").appendChild(panel);
+            button.setAttribute("aria-expanded", "true");
+        });
+        document.addEventListener("click", (e) => { if (!e.target.closest("#menuPanel")) close(); });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    },
+
     mountProfile() {
         const avatar = document.getElementById("avatar");
         if (!avatar || avatar.dataset.profile) return;
@@ -515,6 +559,9 @@ const Nexorix = {
             undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
             split: '<path d="M4 12h6M10 12l8-6M10 12l8 6M18 6h2M18 18h2"/>',
             merge: '<path d="M4 6l8 6-8 6M12 12h8"/>',
+            eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+            eyeoff: '<path d="M3 3l18 18M10.6 6.2A9.6 9.6 0 0 1 12 6c6.4 0 10 6 10 6a17 17 0 0 1-3.2 3.9M6.6 7.6A17 17 0 0 0 2 12s3.6 6 10 6a9.5 9.5 0 0 0 4-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+            menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
             card: '<rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M2.5 10h19M6 15h4"/>',
             bell: '<path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21a2 2 0 0 0 4 0"/>',
             lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
@@ -800,6 +847,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Paginas con sesion (tienen barra superior): campana de avisos y notificaciones del dispositivo.
     if (document.querySelector(".topbar")) {
         Nexorix.bell.start();
+        Nexorix.mountMenu();
     }
 
     // Seguridad: en las paginas con sesion iniciada (las que tienen barra superior),

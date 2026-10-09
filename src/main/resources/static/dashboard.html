@@ -26,7 +26,6 @@
         <span id="navSlot"></span>
     </div>
     <div class="who">
-        <button class="text-button" type="button" id="privacyButton" aria-pressed="false">Ocultar<span class="long"> montos</span></button>
         <span class="who-name" id="welcome"></span>
         <span class="avatar" id="avatar" aria-hidden="true"></span>
         <button class="button secondary small" id="logoutButton" type="button">Salir</button>
@@ -61,7 +60,10 @@
 
     <!-- Lo principal: el dinero real -->
     <section class="truth" id="truthPanel" aria-labelledby="truthSentence">
-        <p class="truth-period">Tu dinero real · este mes <a href="/contador.html#reportes" style="margin-left:8px">ver otros meses</a></p>
+        <div class="truth-head">
+            <p class="truth-period">Tu dinero real · este mes <a href="/contador.html#reportes" style="margin-left:8px">ver otros meses</a></p>
+            <button class="text-button privacy-chip" type="button" id="privacyButton" aria-pressed="false">Ocultar montos</button>
+        </div>
         <p class="sentence" id="truthSentence">Calculando...</p>
         <p class="aside" id="truthAside"></p>
 
@@ -157,7 +159,6 @@
 
 <!-- Barra inferior (celular) -->
 <nav class="action-bar" id="actionBar" aria-label="Acciones" hidden>
-    <button type="button" data-open="movementSheet"><span class="dot in" data-icon="plus"></span>Movimiento</button>
     <button type="button" data-href="/contador.html"><span class="dot" data-icon="upload" style="background:var(--surface-2);color:var(--text)"></span>Contador</button>
     <button type="button" data-open="accountSheet"><span class="dot out" data-icon="wallet" style="background:var(--surface-2);color:var(--text)"></span>Cuenta</button>
 </nav>
@@ -299,7 +300,7 @@
 
     function setPrivacy(on) {
         document.body.classList.toggle("privacy", on);
-        $("privacyButton").innerHTML = (on ? "Mostrar" : "Ocultar") + '<span class="long"> montos</span>';
+        $("privacyButton").innerHTML = Nexorix.icon(on ? "eye" : "eyeoff") + (on ? "Mostrar montos" : "Ocultar montos");
         $("privacyButton").setAttribute("aria-label", on ? "Mostrar montos" : "Ocultar montos");
         $("privacyButton").setAttribute("aria-pressed", String(on));
         try { localStorage.setItem("nexorix.privacy", on ? "1" : "0"); } catch (e) { /* sin almacenamiento */ }
