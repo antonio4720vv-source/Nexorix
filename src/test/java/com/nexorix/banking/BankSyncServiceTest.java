@@ -100,7 +100,8 @@ class BankSyncServiceTest {
         });
 
         service = new BankSyncService(links, events, mock(UserRepository.class), transactions,
-                new FraudEngine(logs, 900, 150, 5), new GeoLocator(), notifications, published::add);
+                new FraudEngine(logs, 900, 150, 5), new GeoLocator(), notifications, published::add,
+                mock(com.nexorix.split.SplitShareRepository.class));
     }
 
     private BankWebhookPayload card(String id, String merchant, String city, String country, OffsetDateTime at) {

@@ -12,6 +12,9 @@ import com.nexorix.fraud.FraudEngine.Verdict;
 import com.nexorix.fraud.Geo;
 import com.nexorix.fraud.GeoLocator;
 import com.nexorix.importer.TransactionClassifier;
+import com.nexorix.split.SplitPaymentMatcher;
+import com.nexorix.split.SplitShare;
+import com.nexorix.split.SplitShareRepository;
 import com.nexorix.transaction.PurchaseRegisteredEvent;
 import com.nexorix.transaction.Transaction;
 import com.nexorix.transaction.TransactionService;
@@ -56,10 +59,12 @@ public class BankSyncService {
     private final GeoLocator geoLocator;
     private final AppNotificationRepository notifications;
     private final ApplicationEventPublisher publisher;
+    private final SplitShareRepository splitShares;
 
     public BankSyncService(BankLinkRepository links, BankEventRepository events, UserRepository users,
                            TransactionService transactions, FraudEngine fraud, GeoLocator geoLocator,
-                           AppNotificationRepository notifications, ApplicationEventPublisher publisher) {
+                           AppNotificationRepository notifications, ApplicationEventPublisher publisher,
+                           SplitShareRepository splitShares) {
         this.links = links;
         this.events = events;
         this.users = users;
@@ -68,6 +73,7 @@ public class BankSyncService {
         this.geoLocator = geoLocator;
         this.notifications = notifications;
         this.publisher = publisher;
+        this.splitShares = splitShares;
     }
 
     @Transactional
@@ -154,6 +160,11 @@ public class BankSyncService {
 
         fraud.learn(user, observation(event, geo));
 
+        // Dinero que llega de una persona: si cuadra con lo que te debe por Dividir gastos, queda saldado solo.
+        if (!debit) {
+            settleSplitPayment(event, user);
+        }
+
         // Anomalia leve: solo aparece dentro de la app, sin alarmar por canales externos.
         if (verdict.level() == Level.ANOMALY) {
             notifications.save(new AppNotification(user, Severity.WARNING, "Movimiento inusual",
@@ -168,6 +179,22 @@ public class BankSyncService {
                     event.getOccurredAt()));
         }
         return new Result(finalStatus.name(), kind.name(), event.getId(), verdict.level().name(), verdict.reason());
+    }
+
+    private void settleSplitPayment(BankEvent event, User user) {
+        String name = event.getKind() == BankMovementKind.EXPENSE ? null : event.getLabel();
+        String label = name == null || name.equals("Movimiento bancario") ? null : name;
+        String ref = event.getCounterpartyRef();
+        SplitPaymentMatcher.pick(splitShares.findOpenForPayerByAmount(user.getId(), event.getAmount()), label, ref)
+                .ifPresent(share -> {
+                    share.settle();
+                    splitShares.save(share);
+                    String title = share.getExpense().getTitle() == null || share.getExpense().getTitle().isBlank()
+                            ? "una cuenta dividida" : "«" + share.getExpense().getTitle() + "»";
+                    notifications.save(new AppNotification(user, Severity.INFO, "Te pagaron una división",
+                            share.getParticipant().getName() + " te pagó " + PurchaseQuestionNotifier.money(event.getAmount())
+                                    + " de " + title + ". Lo marcamos como saldado.", event.getId()));
+                });
     }
 
     private void alertCritical(User user, BankEvent event, Verdict verdict) {

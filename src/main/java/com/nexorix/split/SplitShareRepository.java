@@ -24,4 +24,15 @@ public interface SplitShareRepository extends JpaRepository<SplitShare, Long> {
 
     @Query("select s from SplitShare s join fetch s.expense e join fetch e.payer join fetch s.participant where s.id = :id")
     Optional<SplitShare> findWithExpense(@Param("id") Long id);
+
+    /** Cobros abiertos que le deben a esta persona por exactamente este monto. */
+    @Query("select s from SplitShare s join fetch s.expense e join fetch s.participant "
+            + "where e.payer.id = :payerId and e.status = 'ABIERTA' and s.status in ('PENDIENTE', 'REPORTADO') "
+            + "and s.amount = :amount order by s.id")
+    List<SplitShare> findOpenForPayerByAmount(@Param("payerId") Long payerId, @Param("amount") java.math.BigDecimal amount);
+
+    /** Cobros abiertos de lo que le deben a esta persona (el mas antiguo primero). */
+    @Query("select s from SplitShare s join fetch s.expense e join fetch s.participant "
+            + "where e.payer.id = :payerId and e.status = 'ABIERTA' and s.status in ('PENDIENTE', 'REPORTADO') order by s.id")
+    List<SplitShare> findOpenForPayer(@Param("payerId") Long payerId);
 }

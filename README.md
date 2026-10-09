@@ -17,6 +17,7 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | IA (Gemini) | Lee PDF difíciles o escaneados, mejora la clasificación y el agente **Nexo** responde preguntas con herramientas |
 | Reportes | PDF para el contador y CSV para Excel, con la parte real y la parte interna de cada movimiento |
 | Compras por WhatsApp | Al registrar un gasto, Nexorix pregunta por WhatsApp **qué compraste**; respondes con una nota de voz y Gemini llena tu tabla personalizada |
+| Cobros automáticos | Si te llega por el banco un dinero con el monto exacto de lo que te debe un amigo (y el nombre o documento coincide, o es el único cobro con ese monto), el cobro de Dividir gastos se salda solo y te avisa |
 | Bancos en vivo (demo) | Webhooks firmados de un agregador tipo Plaid / Prometeo (Nequi, Bancolombia, Davivienda…): clasifica gasto / transferencia propia / a tercero |
 | Antifraude | Perfil de comportamiento, regla de **imposibilidad física** (bloqueo + WhatsApp + SMS) y detección de anomalías (solo en la app) |
 

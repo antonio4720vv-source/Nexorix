@@ -84,7 +84,7 @@ const Nexorix = {
             "demo.label": "Demo", "demo.on": "Demo activo", "demo.title": "Modo Demo: datos de ejemplo para probar cada función.",
             "demo.load": "Cargar datos de ejemplo", "demo.exit": "Salir del demo", "demo.simulate": "Simular:",
             "demo.COMPRA": "Compra", "demo.COMPRA_INUSUAL": "Compra inusual", "demo.TRANSFER_PROPIA": "Transferencia propia",
-            "demo.TRANSFER_TERCERO": "Transferencia a tercero", "demo.VIAJE_IMPOSIBLE": "Viaje imposible",
+            "demo.TRANSFER_TERCERO": "Transferencia a tercero", "demo.VIAJE_IMPOSIBLE": "Viaje imposible", "demo.PAGO_DIVISION": "Un amigo te paga su parte",
             "demo.tools": "Herramientas de demo", "demo.toolsOpen": "Dinero y movimientos…", "demo.account": "Cuenta", "demo.amount": "Monto a agregar", "demo.password": "Clave de demo", "demo.addMoney": "Agregar dinero", "demo.resetMoney": "Reiniciar dinero", "demo.resetTx": "Reiniciar movimientos de la cuenta",
             "demo.bank": "Banco", "demo.split": "Dividir gastos", "demo.statements": "Extractos y reportes",
             "demo.splitRun": "Dividir una cena", "demo.importRun": "Subir extracto de ejemplo", "demo.goReports": "Ver reportes",
@@ -104,7 +104,7 @@ const Nexorix = {
             "demo.label": "Demo", "demo.on": "Demo on", "demo.title": "Demo mode: sample data to try every feature.",
             "demo.load": "Load sample data", "demo.exit": "Exit demo", "demo.simulate": "Simulate:",
             "demo.COMPRA": "Purchase", "demo.COMPRA_INUSUAL": "Unusual purchase", "demo.TRANSFER_PROPIA": "Own transfer",
-            "demo.TRANSFER_TERCERO": "Transfer to third party", "demo.VIAJE_IMPOSIBLE": "Impossible trip",
+            "demo.TRANSFER_TERCERO": "Transfer to third party", "demo.VIAJE_IMPOSIBLE": "Impossible trip", "demo.PAGO_DIVISION": "A friend pays their share",
             "demo.tools": "Demo tools", "demo.toolsOpen": "Money and transactions…", "demo.account": "Account", "demo.amount": "Amount to add", "demo.password": "Demo password", "demo.addMoney": "Add money", "demo.resetMoney": "Reset money", "demo.resetTx": "Reset account transactions",
             "demo.bank": "Bank", "demo.split": "Split expenses", "demo.statements": "Statements & reports",
             "demo.splitRun": "Split a dinner", "demo.importRun": "Upload sample statement", "demo.goReports": "View reports",
@@ -153,7 +153,7 @@ const Nexorix = {
 
     demo: {
         /** Escenarios de la barra Demo: el servidor los arma como webhooks del banco. */
-        scenarios: ["COMPRA", "COMPRA_INUSUAL", "TRANSFER_PROPIA", "TRANSFER_TERCERO", "VIAJE_IMPOSIBLE"],
+        scenarios: ["COMPRA", "COMPRA_INUSUAL", "TRANSFER_PROPIA", "TRANSFER_TERCERO", "VIAJE_IMPOSIBLE", "PAGO_DIVISION"],
 
         isOn() {
             try {
