@@ -17,7 +17,6 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 @Service
 public class TransactionService {
@@ -133,63 +132,22 @@ public class TransactionService {
         transaction.setSource("MANUAL");
 
         if (cleanType.equals("INGRESO")) {
+            if (account.isCredit() && account.getCreditLimit() != null
+                    && account.getBalance().add(cleanAmount).compareTo(account.getCreditLimit()) > 0) {
+                throw new IllegalArgumentException("El pago supera lo que debes en la tarjeta de crédito.");
+            }
             account.setBalance(account.getBalance().add(cleanAmount));
         } else {
             if (account.getBalance().compareTo(cleanAmount) < 0) {
-                throw new IllegalArgumentException("Saldo insuficiente para realizar el egreso.");
+                throw new IllegalArgumentException(account.isCredit()
+                        ? "El cupo disponible de la tarjeta no alcanza para este gasto."
+                        : "Saldo insuficiente para realizar el egreso.");
             }
             account.setBalance(account.getBalance().subtract(cleanAmount));
         }
 
         accountRepository.save(account);
         return transactionRepository.save(transaction);
-    }
-
-    /**
-     * Registra una transferencia que la persona hizo entre DOS cuentas suyas:
-     * crea la salida en una y la entrada en la otra, con la misma referencia.
-     *
-     * Nexorix no mueve dinero: solo registra lo que ya paso en los bancos.
-     * Todo ocurre en una sola transaccion: si algo falla (por ejemplo,
-     * saldo insuficiente), no queda ningun movimiento a medias.
-     */
-    @Transactional
-    public List<Transaction> registerTransfer(
-            Long fromAccountId,
-            Long toAccountId,
-            BigDecimal amount,
-            String description,
-            String username
-    ) {
-        if (fromAccountId == null || toAccountId == null) {
-            throw new IllegalArgumentException("Elige la cuenta de origen y la de destino.");
-        }
-        if (fromAccountId.equals(toAccountId)) {
-            throw new IllegalArgumentException("La cuenta de origen y la de destino deben ser diferentes.");
-        }
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Usuario autenticado no encontrado."));
-
-        Account from = ownedAccount(fromAccountId, user);
-        Account to = ownedAccount(toAccountId, user);
-
-        String note = description == null || description.isBlank() ? null : description.trim();
-        String reference = "TRF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
-        LocalDateTime now = LocalDateTime.now();
-
-        // Las transferencias entre cuentas propias no son compras: no se pregunta nada.
-        Transaction out = create(
-                amount, "EGRESO",
-                note != null ? note : "Envío a " + to.getBank(),
-                now, fromAccountId, reference, username);
-
-        Transaction in = create(
-                amount, "INGRESO",
-                note != null ? note : "Recibido de " + from.getBank(),
-                now, toAccountId, reference, username);
-
-        return List.of(out, in);
     }
 
     /**
@@ -234,8 +192,8 @@ public class TransactionService {
         Transaction transaction = new Transaction(clean, type, description, transactionDate, account, reference);
         transaction.setCategory(TransactionClassifier.classify(description, type));
         transaction.setSource("BANK");
-        account.setBalance(type.equals("INGRESO")
-                ? account.getBalance().add(clean) : account.getBalance().subtract(clean));
+        // El saldo nunca baja de cero (ni en credito pasa del cupo): el banco manda, pero no hay dinero negativo.
+        account.applyClamped(type.equals("INGRESO") ? clean : clean.negate());
         accountRepository.save(account);
         return transactionRepository.save(transaction);
     }

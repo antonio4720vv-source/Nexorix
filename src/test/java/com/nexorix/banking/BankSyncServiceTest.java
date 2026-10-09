@@ -100,7 +100,8 @@ class BankSyncServiceTest {
         });
 
         service = new BankSyncService(links, events, mock(UserRepository.class), transactions,
-                new FraudEngine(logs, 900, 150, 5), new GeoLocator(), notifications, published::add);
+                new FraudEngine(logs, 900, 150, 5), new GeoLocator(), notifications, published::add,
+                mock(com.nexorix.split.SplitShareRepository.class));
     }
 
     private BankWebhookPayload card(String id, String merchant, String city, String country, OffsetDateTime at) {
@@ -117,8 +118,35 @@ class BankSyncServiceTest {
     }
 
     @Test
-    void conElFlagApagadoUnGastoNoPreguntaPorWhatsapp() {
+    void unaCompraConTarjetaSiemprePreguntaAunConElFlagApagado() {
+        assertThat(ana.isWhatsappNotificationsEnabled()).isFalse();
+
         service.process(card("a1", "Éxito", "Bogotá", "CO", now));
+
+        assertThat(published).filteredOn(PurchaseRegisteredEvent.class::isInstance).hasSize(1);
+    }
+
+    @Test
+    void laCompraConTarjetaQuedaMarcadaComoTarjeta() {
+        Transaction[] last = new Transaction[1];
+        when(transactions.saveFromBank(any(), any(), anyString(), anyString(), any(), anyString())).thenAnswer(call -> {
+            last[0] = new Transaction(call.getArgument(1), call.getArgument(2), call.getArgument(3),
+                    call.getArgument(4), call.getArgument(0), call.getArgument(5));
+            ReflectionTestUtils.setField(last[0], "id", 51L);
+            return last[0];
+        });
+
+        service.process(card("a5", "Éxito", "Bogotá", "CO", now));
+
+        assertThat(last[0].getSource()).isEqualTo("CARD");
+    }
+
+    @Test
+    void unaTransferenciaATerceroSinElFlagNoPregunta() {
+        BankWebhookPayload toThird = new BankWebhookPayload("t9", "NEQUI", "nequi-1", "DEBIT", new BigDecimal("80000"),
+                "COP", "TRANSFER", null, new Counterparty("Carlos", "nequi-9", "555"), null, now);
+
+        service.process(toThird);
 
         assertThat(published).noneMatch(PurchaseRegisteredEvent.class::isInstance);
     }

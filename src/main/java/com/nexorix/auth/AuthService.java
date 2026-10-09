@@ -151,6 +151,17 @@ public class AuthService {
                 + (left == 1 ? " intento." : " intentos."));
     }
 
+    /** Igual que verifyPin pero a partir del usuario ya autenticado (acciones sensibles dentro de la app). */
+    @Transactional(noRollbackFor = AuthException.class)
+    public void verifyPinOf(String username, String pin) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new AuthException("Usuario no encontrado."));
+        if (!user.hasPin()) {
+            throw new AuthException("Primero crea tu PIN.");
+        }
+        verifyPin(user.getId(), pin);
+    }
+
     @Transactional
     public void createPin(Long userId, String pin, String pinConfirm) {
 

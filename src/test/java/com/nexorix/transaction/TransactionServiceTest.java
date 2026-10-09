@@ -54,40 +54,6 @@ class TransactionServiceTest {
     }
 
     @Test
-    void laTransferenciaCreaSalidaYEntradaConLaMismaReferencia() {
-        List<Transaction> created = service.registerTransfer(6L, 7L,
-                new BigDecimal("1000000"), null, "ana");
-
-        assertThat(created).hasSize(2);
-        assertThat(created.get(0).getType()).isEqualTo("EGRESO");
-        assertThat(created.get(1).getType()).isEqualTo("INGRESO");
-        assertThat(created.get(0).getReference())
-                .startsWith("TRF-")
-                .isEqualTo(created.get(1).getReference());
-        assertThat(created.get(0).getDescription()).isEqualTo("Envío a Davivienda");
-        assertThat(nequi.getBalance()).isEqualByComparingTo("2000000");
-        assertThat(davivienda.getBalance()).isEqualByComparingTo("1000000");
-    }
-
-    @Test
-    void noSePuedeTransferirALaMismaCuenta() {
-        assertThatThrownBy(() -> service.registerTransfer(6L, 6L, BigDecimal.TEN, null, "ana"))
-                .hasMessageContaining("diferentes");
-    }
-
-    @Test
-    void noSePuedeUsarLaCuentaDeOtraPersona() {
-        assertThatThrownBy(() -> service.registerTransfer(6L, 9L, BigDecimal.TEN, null, "ana"))
-                .isInstanceOf(ResponseStatusException.class);
-    }
-
-    @Test
-    void sinSaldoSuficienteNoSeRegistra() {
-        assertThatThrownBy(() -> service.registerTransfer(7L, 6L, BigDecimal.TEN, null, "ana"))
-                .hasMessageContaining("Saldo insuficiente");
-    }
-
-    @Test
     void laDescripcionEsObligatoria() {
         assertThatThrownBy(() -> service.createTransaction(BigDecimal.TEN, "INGRESO", "  ",
                 LocalDateTime.now(), 6L, null, "ana"))

@@ -43,6 +43,10 @@ public class AppNotification {
     @Column(name = "is_read", nullable = false)
     private boolean read;
 
+    /** Ya se empujo como notificacion del dispositivo. Las filas anteriores a esta columna quedan en true. */
+    @Column(nullable = false, columnDefinition = "boolean not null default true")
+    private boolean pushed;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -95,6 +99,14 @@ public class AppNotification {
 
     public void markRead() {
         this.read = true;
+    }
+
+    public boolean isPushed() {
+        return pushed;
+    }
+
+    public void markPushed() {
+        this.pushed = true;
     }
 
     public LocalDateTime getCreatedAt() {

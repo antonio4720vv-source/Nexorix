@@ -15,7 +15,7 @@ import java.util.Set;
 public class AccountService {
 
     /** Tipos de cuenta permitidos. */
-    public static final Set<String> TYPES = Set.of("AHORROS", "CORRIENTE", "BILLETERA");
+    public static final Set<String> TYPES = Set.of("AHORROS", "CORRIENTE", "BILLETERA", "DEBITO", "CREDITO");
 
     /** Maximo de cuentas por persona (evita abusos). */
     public static final int MAX_ACCOUNTS = 20;
@@ -42,6 +42,38 @@ public class AccountService {
             BigDecimal balance,
             String username
     ) {
+        return createAccount(name, type, bank, balance, username, null, null);
+    }
+
+    /** Igual, pero con los datos de la tarjeta (numero y vencimiento): se validan y solo se guardan marca, ultimos 4 y vencimiento. */
+    @Transactional
+    public Account createAccount(String name, String type, String bank, BigDecimal balance, String username,
+                                 BigDecimal creditLimit, String cardNumber, String cardExpiry) {
+        boolean card = cardNumber != null && !cardNumber.isBlank();
+        CardInfo info = card ? CardInfo.of(cardNumber, cardExpiry, java.time.LocalDate.now()) : null;
+        Account account = createAccount(name, type, bank, balance, username, creditLimit,
+                info == null ? null : info.last4());
+        if (info != null) {
+            account.setCard(info.brand(), info.last4(), info.expMonth(), info.expYear());
+            return accountRepository.save(account);
+        }
+        return account;
+    }
+
+    /**
+     * Crea una cuenta o tarjeta. En CREDITO "balance" es el cupo disponible y creditLimit el cupo total
+     * (si no viene, es igual al disponible). Ninguna cuenta puede quedar con saldo negativo.
+     */
+    @Transactional
+    public Account createAccount(
+            String name,
+            String type,
+            String bank,
+            BigDecimal balance,
+            String username,
+            BigDecimal creditLimit,
+            String cardLast4
+    ) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado."));
 
@@ -51,7 +83,7 @@ public class AccountService {
         String cleanType = type == null ? "" : type.trim().toUpperCase(Locale.ROOT);
         if (!TYPES.contains(cleanType)) {
             throw new IllegalArgumentException(
-                    "Tipo de cuenta no válido. Usa AHORROS, CORRIENTE o BILLETERA.");
+                    "Tipo de cuenta no válido. Usa AHORROS, CORRIENTE, BILLETERA, DEBITO o CREDITO.");
         }
 
         if (balance == null || balance.compareTo(BigDecimal.ZERO) < 0) {
@@ -60,6 +92,21 @@ public class AccountService {
 
         if (balance.compareTo(MAX_BALANCE) > 0) {
             throw new IllegalArgumentException("El saldo inicial es demasiado alto.");
+        }
+
+        String last4 = cardLast4 == null || cardLast4.isBlank() ? null : cardLast4.trim();
+        if (last4 != null && !last4.matches("\\d{4}")) {
+            throw new IllegalArgumentException("Los últimos dígitos de la tarjeta son 4 números.");
+        }
+        BigDecimal limit = null;
+        if (cleanType.equals("CREDITO")) {
+            limit = creditLimit == null ? balance : creditLimit;
+            if (limit.compareTo(BigDecimal.ZERO) <= 0 || limit.compareTo(MAX_BALANCE) > 0) {
+                throw new IllegalArgumentException("El cupo de la tarjeta de crédito no es válido.");
+            }
+            if (balance.compareTo(limit) > 0) {
+                throw new IllegalArgumentException("El cupo disponible no puede superar el cupo total.");
+            }
         }
 
         List<Account> existing = accountRepository.findByUserUsername(username);
@@ -84,6 +131,9 @@ public class AccountService {
                 balance.setScale(2, RoundingMode.HALF_UP),
                 user
         );
+
+        account.setCreditLimit(limit == null ? null : limit.setScale(2, RoundingMode.HALF_UP));
+        account.setCardLast4(last4);
 
         return accountRepository.save(account);
     }

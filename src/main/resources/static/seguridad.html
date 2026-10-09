@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0f2a2e">
+    <meta name="theme-color" content="#060913">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Nexorix">
@@ -42,15 +42,27 @@
         </div>
     </div>
 
-    <section class="panel stack">
+    <section class="panel stack" id="avisos">
         <div class="panel-head"><h2>Avisos</h2><span id="unread"></span></div>
         <div id="notifications" class="stack"></div>
     </section>
 
     <section class="panel stack">
+        <div class="panel-head"><h2>Notificaciones en este dispositivo</h2><span id="pushStatus"></span></div>
+        <p>Las alertas (compras bloqueadas, comercios o tiendas nuevas, compras fuera de lo normal) llegan como notificación
+           del celular o del computador, aunque no tengas Nexorix abierto.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="button" id="pushToggle" type="button">Activar notificaciones</button>
+            <button class="button secondary" id="pushTest" type="button" hidden>Enviar una de prueba</button>
+        </div>
+        <p class="notice" id="pushMessage" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel stack">
         <div class="panel-head"><h2>Preferencias</h2></div>
+        <p class="muted" style="margin:0">Cada compra con tarjeta te la preguntamos por WhatsApp (<em>«¿qué compraste?»</em>) cuando tienes tu número conectado en <a href="/dividir.html#compras">Compras</a>.</p>
         <label><input type="checkbox" id="waEnabled">
-            Preguntarme por WhatsApp <em>«¿En qué gastaste…?»</em> cuando haya un gasto o una transferencia a un tercero</label>
+            Preguntarme también por WhatsApp cuando envíe plata a un tercero (transferencias)</label>
         <div class="field">
             <label for="securityPhone">Celular para alertas críticas (WhatsApp + SMS; se envían aunque lo anterior esté apagado)</label>
             <input type="tel" id="securityPhone" placeholder="+57 300 123 4567" maxlength="20">
@@ -59,27 +71,18 @@
     </section>
 
     <section class="panel stack">
-        <div class="panel-head"><h2>Cuentas vinculadas</h2></div>
+        <div class="panel-head"><h2>Cuentas vinculadas</h2><a class="button small" href="/dashboard.html">Vincular un banco</a></div>
+        <p class="muted" style="margin:0">Para conectar un banco, billetera o tarjeta nuevo usa «Vincular» en el panel: el saldo llega solo.</p>
         <div id="links"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
             <div class="field"><label for="accountSelect">Cuenta de Nexorix</label><select id="accountSelect"></select></div>
+            <div class="field"><label for="bankRef">Referencia de la cuenta en el banco (solo cuentas reales)</label>
+                <input id="bankRef" maxlength="100" placeholder="Déjalo vacío para la demo" autocomplete="off"></div>
+            <div class="field"><label for="bankPhone">Celular registrado en el banco (se verifica que sea el tuyo)</label>
+                <input id="bankPhone" type="tel" maxlength="20" placeholder="+57 300 123 4567" autocomplete="off"></div>
             <button class="button secondary" id="linkAccount" type="button">Vincular al banco</button>
         </div>
         <p id="linkMsg"></p>
-    </section>
-
-    <section class="panel stack">
-        <div class="panel-head"><h2>Simulador de banco (demo)</h2></div>
-        <p>Envía webhooks de prueba por el mismo camino que usaría Plaid / Prometeo. Primero «Cargar hábitos».</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap" id="scenarios">
-            <button class="button secondary" data-s="SEMILLA" type="button">Cargar hábitos</button>
-            <button class="button secondary" data-s="COMPRA" type="button">Compra normal</button>
-            <button class="button secondary" data-s="COMPRA_INUSUAL" type="button">Comercio inusual</button>
-            <button class="button secondary" data-s="TRANSFER_PROPIA" type="button">Transferencia propia</button>
-            <button class="button secondary" data-s="TRANSFER_TERCERO" type="button">Transferencia a tercero</button>
-            <button class="button" data-s="VIAJE_IMPOSIBLE" type="button">Bogotá → Miami en 1 h</button>
-        </div>
-        <p id="simMsg"></p>
     </section>
 
     <section class="panel stack">
@@ -193,12 +196,6 @@
             if (!r.ok) Nexorix.toast(Nexorix.errorOf(r, "No se pudo liberar."), "error");
             refresh();
         }
-        if (button.dataset.s) {
-            const r = await post("/api/bank/demo/" + button.dataset.s);
-            $("simMsg").textContent = r.ok ? r.data.map((x) => `${x.status}${x.message ? ": " + x.message : ""}`).join(" | ")
-                : Nexorix.errorOf(r, "No se pudo simular.");
-            await refresh();
-        }
     });
 
     $("savePrefs").addEventListener("click", async () => {
@@ -211,12 +208,51 @@
     $("linkAccount").addEventListener("click", async () => {
         const accountId = Number($("accountSelect").value);
         if (!accountId) { $("linkMsg").textContent = "No hay cuentas por vincular."; return; }
-        const r = await post("/api/bank/links", { accountId });
+        const r = await post("/api/bank/links", { accountId, externalRef: $("bankRef").value.trim() || null, phone: $("bankPhone").value.trim() || null });
         $("linkMsg").textContent = r.ok ? "Vinculada ✔" : Nexorix.errorOf(r, "No se pudo vincular.");
         loadLinks();
     });
 
-    header().then(() => { loadPrefs(); refresh(); });
+    // ---------- Notificaciones del dispositivo ----------
+
+    async function renderPush() {
+        const supported = Nexorix.push.supported();
+        const active = supported && await Nexorix.push.active();
+        const blocked = supported && Notification.permission === "denied";
+        $("pushStatus").innerHTML = !supported ? '<span class="pill warn">No disponible</span>'
+            : blocked ? '<span class="pill bad">Bloqueadas</span>'
+            : active ? '<span class="pill ok">Activas</span>' : '<span class="pill wait">Apagadas</span>';
+        $("pushToggle").textContent = active ? "Desactivar en este dispositivo" : "Activar notificaciones";
+        $("pushToggle").disabled = !supported || blocked;
+        $("pushTest").hidden = !active;
+        if (!supported) Nexorix.say($("pushMessage"), "Este navegador no permite notificaciones. En iPhone, agrega Nexorix a la pantalla de inicio y ábrelo desde ahí.", "wait");
+        else if (blocked) Nexorix.say($("pushMessage"), "Bloqueaste las notificaciones. Actívalas en los ajustes del navegador para este sitio.", "wait");
+    }
+
+    $("pushToggle").addEventListener("click", async () => {
+        $("pushToggle").disabled = true;
+        try {
+            if (await Nexorix.push.active()) {
+                await Nexorix.push.disable();
+                Nexorix.say($("pushMessage"), "Notificaciones desactivadas en este dispositivo.", "");
+            } else {
+                await Nexorix.push.enable();
+                Nexorix.say($("pushMessage"), "¡Listo! Te avisaremos en este dispositivo.", "ok");
+            }
+        } catch (error) {
+            Nexorix.say($("pushMessage"), error.message, "error");
+        }
+        $("pushToggle").disabled = false;
+        renderPush();
+    });
+
+    $("pushTest").addEventListener("click", async () => {
+        const r = await post("/api/push/test");
+        Nexorix.say($("pushMessage"), r.ok && r.data.sent > 0 ? "Enviamos una notificación de prueba." :
+            "No pudimos entregar la prueba. Desactiva y vuelve a activar las notificaciones.", r.ok && r.data.sent > 0 ? "ok" : "error");
+    });
+
+    header().then(() => { loadPrefs(); refresh(); renderPush(); });
 </script>
 </body>
 </html>

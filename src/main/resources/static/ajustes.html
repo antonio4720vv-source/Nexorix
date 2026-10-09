@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#060913">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Nexorix">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Nexorix: sigue tu dinero, no solamente tus movimientos.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/nexorix.css">
+        <title>Nexorix - Ajustes</title>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-left">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark"></span>Nexorix</a>
+        <span id="navSlot" data-active="ajustes"></span>
+    </div>
+    <div class="who">
+        <span class="who-name" id="welcome"></span>
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <button class="button secondary small" id="logoutButton" type="button">Salir</button>
+    </div>
+</header>
+
+<main class="page" style="max-width:680px">
+    <div class="page-head">
+        <div>
+            <h1 data-i18n="settings.title">Ajustes</h1>
+        </div>
+    </div>
+
+    <section class="panel stack">
+        <div class="panel-head"><h2 data-i18n="settings.language">Idioma</h2></div>
+        <div class="field">
+            <label for="langSelect" data-i18n="settings.language">Idioma</label>
+            <select id="langSelect">
+                <option value="es">Español</option>
+                <option value="en">English</option>
+            </select>
+        </div>
+        <p class="muted" style="margin:0;font-size:.85rem" data-i18n="settings.languageHelp">
+            Cambia los menús, los botones generales y esta página. El resto del contenido sigue en español por ahora.
+        </p>
+        <p class="notice" id="langMessage" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel stack">
+        <div class="panel-head"><h2 data-i18n="settings.demo">Modo Demo</h2></div>
+        <p class="muted" style="margin:0;font-size:.85rem" data-i18n="settings.demoHelp">
+            Muestra la barra Demo para probar cada función con datos de ejemplo.
+        </p>
+        <div>
+            <button class="button secondary" type="button" id="demoSwitch" aria-pressed="false"></button>
+        </div>
+    </section>
+</main>
+
+<script src="/nexorix.js"></script>
+<script src="/agente.js"></script>
+<script>
+    const $ = (id) => document.getElementById(id);
+
+    async function api(path, options) {
+        const result = await Nexorix.api(path, options);
+        if (result.status === 401) {
+            window.location.href = "/login.html?expirada=1";
+            throw new Error("Sesion vencida");
+        }
+        return result;
+    }
+
+    function paintDemo() {
+        const on = Nexorix.demo.isOn();
+        $("demoSwitch").textContent = on ? Nexorix.t("demo.exit") : Nexorix.t("demo.load");
+        $("demoSwitch").setAttribute("aria-pressed", String(on));
+    }
+
+    (async () => {
+        try {
+            document.querySelectorAll("[data-icon]").forEach(el => el.innerHTML = Nexorix.icon(el.dataset.icon));
+            $("navSlot").outerHTML = Nexorix.nav("ajustes");
+
+            const me = await api("/api/users/me");
+            if (me.ok && me.data) {
+                $("welcome").textContent = me.data.name;
+                $("avatar").textContent = Nexorix.initials(me.data.name);
+            }
+            $("logoutButton").addEventListener("click", async () => {
+                try { await Nexorix.api("/api/users/logout", { method: "POST" }); }
+                finally { window.location.href = "/login.html"; }
+            });
+
+            $("langSelect").value = Nexorix.lang();
+            $("langSelect").addEventListener("change", () => {
+                Nexorix.setLang($("langSelect").value);
+                Nexorix.say($("langMessage"), Nexorix.t("settings.saved"), "ok");
+                setTimeout(() => location.reload(), 500);
+            });
+
+            paintDemo();
+            $("demoSwitch").addEventListener("click", async () => {
+                const turnOn = !Nexorix.demo.isOn();
+                $("demoSwitch").disabled = true;
+                try {
+                    if (turnOn) await Nexorix.demo.enable();
+                    else Nexorix.demo.set(false);
+                } catch (error) {
+                    Nexorix.toast(error.message, "error");
+                } finally {
+                    $("demoSwitch").disabled = false;
+                    paintDemo();
+                }
+            });
+        } catch (e) { if (e.message !== "Sesion vencida") console.error(e); }
+    })();
+</script>
+</body>
+</html>

@@ -9,15 +9,19 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | Módulo | Descripción |
 |---|---|
 | Registro y acceso | Contraseña fuerte, verificación de identidad con Didit, PIN, bloqueo por intentos, recuperación con correo + identidad |
-| Cuentas y movimientos | Cuentas, ingresos, egresos y transferencias entre cuentas propias |
-| Trace V2 | Detecta transferencias entre cuentas propias 1→1, 1→N, N→1, con comisiones; confirmar, deshacer e historial |
+| Cuentas y movimientos | Cuentas, ingresos y egresos (Nexorix es un gestor contable personal, no un banco: no hay transferencias entre cuentas) |
+| Trace V2 (dentro de Contador y reportes) | Detecta transferencias entre cuentas propias 1→1, 1→N, N→1, con comisiones; confirmar, deshacer e historial |
 | Dinero real | Ingresos y gastos reales, sin transferencias internas; las comisiones sí cuentan como gasto |
 | Contador | Antes «Importación»: varios extractos PDF o CSV a la vez, en cola, con duplicados, clasificación y cuadre con los totales del banco, más un **historial de auditoría** de cada archivo |
 | Dividir gastos | Amigos por nombre de usuario, división en partes iguales y enlace de cobro para que cada amigo reembolse al pagador |
 | IA (Gemini) | Lee PDF difíciles o escaneados, mejora la clasificación y el agente **Nexo** responde preguntas con herramientas |
 | Reportes | PDF para el contador y CSV para Excel, con la parte real y la parte interna de cada movimiento |
 | Compras por WhatsApp | Al registrar un gasto, Nexorix pregunta por WhatsApp **qué compraste**; respondes con una nota de voz y Gemini llena tu tabla personalizada |
+| Cobros automáticos | Si te llega por el banco un dinero con el monto exacto de lo que te debe un amigo (y el nombre o documento coincide, o es el único cobro con ese monto), el cobro de Dividir gastos se salda solo y te avisa |
 | Bancos en vivo (demo) | Webhooks firmados de un agregador tipo Plaid / Prometeo (Nequi, Bancolombia, Davivienda…): clasifica gasto / transferencia propia / a tercero |
+| Tarjeta y categorías | Cada compra con tarjeta pregunta **siempre** por WhatsApp; la persona (o la IA, que aprende por comercio) la guarda en su categoría (helados, cigarrillos…) y avisa si la categoría o la tienda es nueva |
+| Notificaciones push | Las alertas llegan como notificación del dispositivo (Web Push + VAPID, `sw.js`), además de la campanita |
+| Extractos con PIN | Descargar PDF/CSV pide el PIN; se elige un mes o un rango de fechas |
 | Antifraude | Perfil de comportamiento, regla de **imposibilidad física** (bloqueo + WhatsApp + SMS) y detección de anomalías (solo en la app) |
 
 ## Páginas
@@ -41,6 +45,10 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | `POST /api/bank/webhook` | Webhook del agregador bancario (público, firmado con `X-Bank-Signature`) |
 | `GET/POST /api/bank/links` · `GET /api/bank/events` · `POST /api/bank/events/{id}/release` | Cuentas vinculadas, movimientos del banco y «fui yo» para liberar un bloqueo |
 | `POST /api/bank/demo/{SEMILLA\|COMPRA\|COMPRA_INUSUAL\|TRANSFER_PROPIA\|TRANSFER_TERCERO\|VIAJE_IMPOSIBLE}` | Simulador de la demo |
+| `POST /api/bank/connect` | Vincula un banco, billetera o tarjeta: crea la cuenta y trae el saldo solo |
+| `GET /api/push/key` · `POST /api/push/subscribe\|unsubscribe\|test` | Notificaciones del dispositivo |
+| `POST /api/reports/pin` | Desbloquea la descarga de extractos 3 minutos |
+| `GET /api/compras/categorias` · `PUT /api/compras/{id}/categoria` | Categorías de compras |
 | `GET/PUT /api/security/preferences` · `GET /api/security/profile` · `GET /api/security/notifications` · `POST /api/security/notifications/{id}/read` | Opt-in de WhatsApp, perfil de comportamiento y avisos dentro de la app |
 | `GET /api/imports/audit` · `?archivo=ID` · `GET /api/imports/audit.csv` | Historial de auditoría del Contador (JSON y CSV) |
 | `GET /api/friends` · `GET /api/friends/search?q=` · `POST /api/friends/requests` · `POST /api/friends/requests/{usuario}/accept` · `DELETE /api/friends/{usuario}` | Amigos |
@@ -65,6 +73,7 @@ Las rutas anteriores (`/api/trace/own-transfers`, `/confirm`, `/matches`, `/api/
 | `NEXORIX_AI_MODEL` / `NEXORIX_AI_FAST_MODEL` | No | Modelos de Gemini (por defecto `gemini-3.5-flash`) |
 | `NEXORIX_AI_MAX_CONCURRENT` | No | Llamadas simultáneas a la IA (por defecto 4) |
 | `NEXORIX_COOKIE_SECURE` | No | `true` en producción con HTTPS |
+| `NEXORIX_VAPID_PUBLIC`, `NEXORIX_VAPID_PRIVATE`, `NEXORIX_PUSH_SUBJECT` | No | Llaves VAPID de las notificaciones push. Sin ellas se generan y guardan en la base de datos |
 | `NEXORIX_IP_LIMITS` | No | `false` solo para pruebas de carga |
 | `NEXORIX_MAIL_*`, `NEXORIX_RECOVERY_DOCUMENT_CHECK`, `NEXORIX_IMPORT_*` | No | Igual que antes |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | No | Activan WhatsApp (Meta for Developers → WhatsApp → Configuración de la API) |
@@ -251,6 +260,8 @@ Los scripts están en [`db/`](db/) y son **idempotentes** (se pueden repetir). O
   - *AbuseIPDB:* con `ABUSEIPDB_API_KEY` se reporta cada baneo por honeypot, payload o fuerza bruta (no las inundaciones, por posibles falsos positivos). IPs privadas nunca se reportan.
   - Detrás de un proxy la IP viene de `server.forward-headers-strategy=native`; si el proxy no es de confianza para Tomcat, todos compartirían IP: verifica que `request.getRemoteAddr()` sea la del cliente antes de producción.
 - Cabeceras: CSP, frame-deny, Referrer-Policy, Permissions-Policy, HSTS en HTTPS.
+- **Cifrado de datos sensibles en la base de datos**: cédula, correo y celular se guardan con AES-256-GCM (nonce aleatorio, detecta alteraciones). Se buscan con una huella HMAC aparte, así que ni la base de datos revela esos datos. Clave: `NEXORIX_DATA_KEY` (`openssl rand -base64 32`), obligatoria en producción (`NEXORIX_COOKIE_SECURE=true`); guárdala fuera de la base de datos. Al arrancar, los datos que estaban en claro se cifran solos.
+- Contraseña y PIN con BCrypt; la API responde `Cache-Control: no-store`; errores internos nunca se muestran; cookie solo por cookie (no en la URL); cierre de sesión automático a los 10 min sin actividad en el navegador.
 - Reportes con `Cache-Control: no-store`, documento enmascarado y CSV protegido contra inyección de fórmulas.
 
 **¿Por qué no JWT?** Nexorix es una aplicación web del mismo dominio. Una cookie de sesión HttpOnly no la puede leer JavaScript, y se invalida al cerrar sesión. Un JWT guardado en el navegador queda expuesto si hay un XSS y no se puede revocar sin infraestructura extra. JWT tiene sentido cuando haya una app móvil nativa o una API para terceros.

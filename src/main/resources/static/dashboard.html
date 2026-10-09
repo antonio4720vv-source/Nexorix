@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0f2a2e">
+    <meta name="theme-color" content="#060913">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Nexorix">
@@ -26,7 +26,6 @@
         <span id="navSlot"></span>
     </div>
     <div class="who">
-        <button class="text-button" type="button" id="privacyButton" aria-pressed="false">Ocultar<span class="long"> montos</span></button>
         <span class="who-name" id="welcome"></span>
         <span class="avatar" id="avatar" aria-hidden="true"></span>
         <button class="button secondary small" id="logoutButton" type="button">Salir</button>
@@ -43,27 +42,28 @@
     <!-- Acciones rapidas (computador) -->
     <div class="quick-actions" id="quickActions" hidden>
         <button class="button" type="button" data-open="movementSheet">Registrar movimiento</button>
-        <button class="button secondary" type="button" data-open="transferSheet">Transferencia entre mis cuentas</button>
         <a class="button secondary" href="/contador.html">Contador</a>
-        <button class="button secondary" type="button" data-open="accountSheet">Agregar cuenta</button>
+        <button class="button secondary" type="button" data-open="accountSheet"><span data-icon="card" style="display:inline-flex"></span> Vincular banco o tarjeta</button>
     </div>
 
     <!-- Bienvenida: todavia no tiene cuentas -->
     <section class="welcome" id="welcomePanel" hidden>
-        <h2>Empecemos por tus cuentas</h2>
+        <h2>Conecta tu primer banco</h2>
         <p>
-            Agrega las cuentas que tienes en tus bancos y billeteras. Luego registra tus
-            movimientos y Nexorix te mostrará cuánto dinero entró y salió de verdad.
+            Vincula tus bancos, billeteras y tarjetas. Nexorix trae tu saldo y tus movimientos solo, en vivo,
+            y te muestra cuánto dinero entró y salió de verdad.
         </p>
         <div class="actions">
-            <button class="button light" type="button" data-open="accountSheet">Agregar mi primera cuenta</button>
-            <button class="button" type="button" id="demoButton">Ver con datos de ejemplo</button>
+            <button class="button light" type="button" data-open="accountSheet"><span data-icon="card" style="display:inline-flex"></span> Vincular mi primer banco</button>
         </div>
     </section>
 
     <!-- Lo principal: el dinero real -->
     <section class="truth" id="truthPanel" aria-labelledby="truthSentence">
-        <p class="truth-period">Tu dinero real</p>
+        <div class="truth-head">
+            <p class="truth-period">Tu dinero real · este mes <a href="/contador.html#reportes" style="margin-left:8px">ver otros meses</a></p>
+            <button class="text-button privacy-chip" type="button" id="privacyButton" aria-pressed="false">Ocultar montos</button>
+        </div>
         <p class="sentence" id="truthSentence">Calculando...</p>
         <p class="aside" id="truthAside"></p>
 
@@ -127,7 +127,7 @@
                 <span class="count" id="pendingCount" hidden></span>
             </div>
             <div class="trace-list" id="suggestions"><div class="skeleton"></div></div>
-            <a class="text-button more-button" href="/traza.html" id="moreSuggestions" hidden>Ver todas en Trace</a>
+            <a class="text-button more-button" href="/contador.html#trace" id="moreSuggestions" hidden>Ver todas en Trace</a>
         </section>
     </div>
 
@@ -151,7 +151,7 @@
     <section class="panel stack" aria-labelledby="matchesTitle">
         <div class="panel-head">
             <h2 id="matchesTitle">Transferencias entre tus cuentas</h2>
-            <a href="/traza.html#historial" style="font-size:.85rem">Ver historial</a>
+            <a href="/contador.html#trace" style="font-size:.85rem">Ver historial</a>
         </div>
         <div class="trace-list" id="matches"></div>
     </section>
@@ -159,23 +159,21 @@
 
 <!-- Barra inferior (celular) -->
 <nav class="action-bar" id="actionBar" aria-label="Acciones" hidden>
-    <button type="button" data-open="movementSheet"><span class="dot in" data-icon="plus"></span>Movimiento</button>
-    <button type="button" data-open="transferSheet"><span class="dot moved" data-icon="moved"></span>Transferir</button>
-    <button type="button" data-href="/contador.html"><span class="dot" data-icon="upload" style="background:#eef3f1;color:var(--ink)"></span>Contador</button>
-    <button type="button" data-open="accountSheet"><span class="dot out" data-icon="wallet" style="background:#eef3f1;color:var(--ink)"></span>Cuenta</button>
+    <button type="button" data-href="/contador.html"><span class="dot" data-icon="upload" style="background:var(--surface-2);color:var(--text)"></span>Contador</button>
+    <button type="button" data-open="accountSheet"><span class="dot out" data-icon="wallet" style="background:var(--surface-2);color:var(--text)"></span>Cuenta</button>
 </nav>
 
 <!-- Ventana: agregar cuenta -->
 <dialog class="sheet" id="accountSheet" aria-labelledby="accountSheetTitle">
     <form class="sheet-body" id="accountForm" novalidate>
         <div class="sheet-head">
-            <h2 id="accountSheetTitle">Agregar cuenta</h2>
+            <h2 id="accountSheetTitle"><span class="title-icon" data-icon="card"></span> Vincular banco, billetera o tarjeta</h2>
             <button class="close-button" type="button" data-close aria-label="Cerrar">&times;</button>
         </div>
-        <p class="lead">Una cuenta o billetera que ya tienes en tu banco.</p>
+        <p class="lead">Nexorix trae tu saldo y tus movimientos automáticamente y los ve en vivo: no tienes que escribir cuánto tienes.</p>
 
         <div class="field">
-            <label for="accountBank">Banco o billetera</label>
+            <label for="accountBank"><span class="title-icon" data-icon="card"></span> Banco o billetera</label>
             <input id="accountBank" list="banks" maxlength="100" autocomplete="off" required>
             <datalist id="banks">
                 <option value="Bancolombia"><option value="Davivienda"><option value="Nequi">
@@ -195,17 +193,29 @@
                     <option value="AHORROS">Ahorros</option>
                     <option value="CORRIENTE">Corriente</option>
                     <option value="BILLETERA">Billetera digital</option>
+                    <option value="DEBITO">Tarjeta débito</option>
+                    <option value="CREDITO">Tarjeta de crédito</option>
                 </select>
             </div>
+        </div>
+        <div class="row" id="cardFields" hidden>
             <div class="field">
-                <label for="accountBalance">Saldo actual</label>
-                <input id="accountBalance" inputmode="numeric" placeholder="0" required>
+                <label for="cardNumber">Número de la tarjeta</label>
+                <input id="cardNumber" inputmode="numeric" maxlength="23" placeholder="0000 0000 0000 0000" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="cardExpiry">Vencimiento (MM/AA)</label>
+                <input id="cardExpiry" inputmode="numeric" maxlength="5" placeholder="MM/AA" autocomplete="off">
             </div>
         </div>
-        <p class="money-preview" id="accountBalancePreview"></p>
+        <p class="muted" id="cardNote" style="font-size:.8rem;margin:0" hidden>Por seguridad solo guardamos la marca, los últimos 4 dígitos y el
+           vencimiento. <strong>Nunca</strong> te pedimos ni guardamos el CVV, y el número completo se descarta después de validarlo.
+           Con eso detectamos compras con una tarjeta vencida o distinta de la tuya.</p>
+        <p class="secure-note"><span data-icon="lock" style="display:inline-flex"></span>
+            <span>Solo lectura: Nexorix no puede mover tu dinero. En una tarjeta de crédito el saldo que ves es el <strong>cupo disponible</strong>.</span></p>
 
         <div class="sheet-actions">
-            <button class="button" type="submit" id="accountSubmit">Guardar cuenta</button>
+            <button class="button" type="submit" id="accountSubmit">Vincular y traer mi saldo</button>
         </div>
     </form>
 </dialog>
@@ -250,44 +260,6 @@
     </form>
 </dialog>
 
-<!-- Ventana: transferencia entre mis cuentas -->
-<dialog class="sheet" id="transferSheet" aria-labelledby="transferSheetTitle">
-    <form class="sheet-body" id="transferForm" novalidate>
-        <div class="sheet-head">
-            <h2 id="transferSheetTitle">Transferencia entre mis cuentas</h2>
-            <button class="close-button" type="button" data-close aria-label="Cerrar">&times;</button>
-        </div>
-        <p class="lead">
-            Registra un envío que ya hiciste de una cuenta tuya a otra. Nexorix no mueve
-            dinero: solo lo anota para que Trace lo reconozca.
-        </p>
-
-        <div class="row">
-            <div class="field">
-                <label for="transferFrom">Desde</label>
-                <select id="transferFrom"></select>
-            </div>
-            <div class="field">
-                <label for="transferTo">Hacia</label>
-                <select id="transferTo"></select>
-            </div>
-        </div>
-        <div class="field">
-            <label for="transferAmount">Monto</label>
-            <input id="transferAmount" inputmode="numeric" placeholder="0" required>
-        </div>
-        <p class="money-preview" id="transferAmountPreview"></p>
-        <div class="field">
-            <label for="transferNote">Nota (opcional)</label>
-            <input id="transferNote" maxlength="200" placeholder="Ej: Para el arriendo">
-        </div>
-
-        <div class="sheet-actions">
-            <button class="button" type="submit" id="transferSubmit">Registrar transferencia</button>
-        </div>
-    </form>
-</dialog>
-
 <script src="/nexorix.js"></script>
 <script src="/trace-ui.js"></script>
 <script src="/agente.js"></script>
@@ -301,6 +273,7 @@
     let accounts = [];
     let allMovements = [];
     let showAllMovements = false;
+    let linkedAccounts = new Set();
     let internalPortions = {};
     let suggestionList = [];
 
@@ -327,7 +300,7 @@
 
     function setPrivacy(on) {
         document.body.classList.toggle("privacy", on);
-        $("privacyButton").innerHTML = (on ? "Mostrar" : "Ocultar") + '<span class="long"> montos</span>';
+        $("privacyButton").innerHTML = Nexorix.icon(on ? "eye" : "eyeoff") + (on ? "Mostrar montos" : "Ocultar montos");
         $("privacyButton").setAttribute("aria-label", on ? "Mostrar montos" : "Ocultar montos");
         $("privacyButton").setAttribute("aria-pressed", String(on));
         try { localStorage.setItem("nexorix.privacy", on ? "1" : "0"); } catch (e) { /* sin almacenamiento */ }
@@ -345,17 +318,10 @@
             Nexorix.toast("Primero agrega una cuenta.", "error");
             id = "accountSheet";
         }
-        if (id === "transferSheet" && accounts.length < 2) {
-            Nexorix.toast("Necesitas al menos dos cuentas para registrar una transferencia.", "error");
-            return;
-        }
         fillAccountSelects();
         const sheet = $(id);
         sheet.querySelector("form").reset();
         sheet.querySelectorAll(".money-preview").forEach(p => p.textContent = "");
-        if (id === "transferSheet" && accounts.length > 1) {
-            $("transferTo").selectedIndex = 1;
-        }
         sheet.showModal();
         const first = sheet.querySelector("input:not([type=radio]), select");
         if (first) first.focus();
@@ -380,12 +346,10 @@
                 ? a.name : `${a.name} (${a.bank})`;
             return `<option value="${a.id}">${esc(label)}</option>`;
         }).join("");
-        ["movementAccount", "transferFrom", "transferTo"].forEach(id => $(id).innerHTML = options);
+        $("movementAccount").innerHTML = options;
     }
 
-    Nexorix.moneyInput($("accountBalance"), $("accountBalancePreview"));
     Nexorix.moneyInput($("movementAmount"), $("movementAmountPreview"));
-    Nexorix.moneyInput($("transferAmount"), $("transferAmountPreview"));
 
     async function submitForm(button, path, params, okText, sheetId) {
         button.disabled = true;
@@ -405,19 +369,42 @@
         }
     }
 
-    $("accountForm").addEventListener("submit", (event) => {
+    $("accountType").addEventListener("change", () => {
+        const type = $("accountType").value;
+        $("cardFields").hidden = $("cardNote").hidden = !["DEBITO", "CREDITO"].includes(type);
+    });
+
+    $("accountForm").addEventListener("submit", async (event) => {
         event.preventDefault();
-        const balance = Nexorix.parseMoney($("accountBalance").value || "0");
-        if (!$("accountBank").value.trim() || !$("accountName").value.trim()) {
-            Nexorix.toast("Escribe el banco y un nombre para la cuenta.", "error");
+        const bank = $("accountBank").value.trim();
+        if (!bank) {
+            Nexorix.toast("Escribe tu banco o billetera.", "error");
             return;
         }
-        submitForm($("accountSubmit"), "/api/accounts", {
-            name: $("accountName").value.trim(),
-            bank: $("accountBank").value.trim(),
-            type: $("accountType").value,
-            balance: isNaN(balance) ? 0 : balance
-        }, "Cuenta agregada.", "accountSheet");
+        const type = $("accountType").value;
+        const json = { bank, type, name: $("accountName").value.trim() };
+        if (["DEBITO", "CREDITO"].includes(type) && $("cardNumber").value.trim()) {
+            json.cardNumber = $("cardNumber").value.trim();
+            json.cardExpiry = $("cardExpiry").value.trim();
+        }
+        const button = $("accountSubmit");
+        button.disabled = true;
+        button.textContent = "Conectando con tu banco…";
+        try {
+            // El saldo nunca se pregunta: el servidor lo trae del banco al vincular.
+            const result = await api("/api/bank/connect", { method: "POST", json });
+            if (!result.ok) {
+                Nexorix.toast(Nexorix.errorOf(result, "No fue posible vincular. Revisa los datos."), "error");
+                return;
+            }
+            $("accountSheet").close();
+            Nexorix.toast(`${bank} vinculado. Tu saldo es ${money(result.data.balance)} y ya ves tus movimientos en vivo.`);
+            await loadMoney();
+            startLive();
+        } finally {
+            button.disabled = false;
+            button.textContent = "Vincular y traer mi saldo";
+        }
     });
 
     $("movementForm").addEventListener("submit", (event) => {
@@ -442,72 +429,6 @@
         }
         submitForm($("movementSubmit"), "/api/transactions", params,
             "Movimiento registrado.", "movementSheet");
-    });
-
-    $("transferForm").addEventListener("submit", (event) => {
-        event.preventDefault();
-        const amount = Nexorix.parseMoney($("transferAmount").value);
-        if (isNaN(amount) || amount <= 0) {
-            Nexorix.toast("Escribe un monto mayor que cero.", "error");
-            return;
-        }
-        if ($("transferFrom").value === $("transferTo").value) {
-            Nexorix.toast("Elige dos cuentas diferentes.", "error");
-            return;
-        }
-        const params = {
-            fromAccountId: $("transferFrom").value,
-            toAccountId: $("transferTo").value,
-            amount
-        };
-        if ($("transferNote").value.trim()) {
-            params.description = $("transferNote").value.trim();
-        }
-        submitForm($("transferSubmit"), "/api/transactions/transfer", params,
-            "Transferencia registrada. Confírmala en \"Por confirmar\".", "transferSheet");
-    });
-
-    // ============================================================
-    // DATOS DE EJEMPLO (para mostrar el demo en segundos)
-    // ============================================================
-
-    $("demoButton").addEventListener("click", async () => {
-        const button = $("demoButton");
-        button.disabled = true;
-        Nexorix.toast("Creando datos de ejemplo...");
-
-        try {
-            const create = async (path, params) => {
-                const result = await api(path + "?" + new URLSearchParams(params), { method: "POST" });
-                if (!result.ok) {
-                    throw new Error(Nexorix.errorOf(result, "No fue posible crear el ejemplo."));
-                }
-                return result.data;
-            };
-
-            const nequi = await create("/api/accounts",
-                { name: "Nequi (ejemplo)", bank: "Nequi", type: "BILLETERA", balance: 3000000 });
-            const davi = await create("/api/accounts",
-                { name: "Davivienda (ejemplo)", bank: "Davivienda", type: "AHORROS", balance: 0 });
-            const nu = await create("/api/accounts",
-                { name: "Nu (ejemplo)", bank: "Nu", type: "AHORROS", balance: 0 });
-
-            await create("/api/transactions/transfer",
-                { fromAccountId: nequi.id, toAccountId: davi.id, amount: 1000000 });
-            await create("/api/transactions/transfer",
-                { fromAccountId: nequi.id, toAccountId: nu.id, amount: 1000000 });
-            await create("/api/transactions",
-                { accountId: davi.id, type: "INGRESO", amount: 3000000, description: "Salario" });
-            await create("/api/transactions",
-                { accountId: nu.id, type: "EGRESO", amount: 500000, description: "Mercado" });
-
-            Nexorix.toast("Listo. Ahora confirma las transferencias en \"Por confirmar\".");
-            await loadMoney();
-        } catch (error) {
-            Nexorix.toast(error.message, "error");
-        } finally {
-            button.disabled = false;
-        }
     });
 
     // ============================================================
@@ -605,7 +526,7 @@
         if (allMovements.length === 0) {
             $("truthSentence").textContent = "Aún no tienes movimientos.";
             $("truthAside").textContent =
-                "Registra un ingreso, un gasto o una transferencia entre tus cuentas para ver tu dinero real.";
+                "Registra un ingreso o un gasto para ver tu dinero real.";
             $("bars").hidden = true;
             $("pendingNote").hidden = true;
             return;
@@ -654,6 +575,8 @@
                     ${esc(String(bank || "?").charAt(0).toUpperCase())}</span>`;
     }
 
+    const TYPE_LABEL = { DEBITO: "Tarjeta débito", CREDITO: "Tarjeta de crédito (disponible)", BILLETERA: "Billetera" };
+
     function renderAccounts(data) {
         $("totalBalance").textContent = money(data.totalBalance);
 
@@ -667,10 +590,38 @@
                 ${bankChip(account.bank)}
                 <div>
                     <div class="title">${esc(account.name)}</div>
-                    <div class="meta">${esc(account.bank)}</div>
+                    <div class="meta">${esc(account.bank)}${TYPE_LABEL[account.type] ? " · " + TYPE_LABEL[account.type] : ""}${account.cardLast4 ? " · " + esc(account.cardBrand || "") + " ···· " + esc(account.cardLast4) : ""}${account.cardExpMonth ? " · vence " + String(account.cardExpMonth).padStart(2, "0") + "/" + String(account.cardExpYear).slice(2) : ""}${account.type === "CREDITO" && account.creditLimit ? " · cupo " + money(account.creditLimit) : ""}</div>
                 </div>
-                <div class="amount">${amt(account.balance)}</div>
+                <div class="amount">${amt(account.balance)}${linkedAccounts.has(account.id)
+                    ? '<div class="live-badge"><i></i>En vivo</div>' : ""}</div>
             </div>`).join("");
+    }
+
+    // ============================================================
+    // EN VIVO: movimientos que llegan del banco
+    // ============================================================
+
+    let liveTimer = null;
+    let liveTop = null;
+
+    async function pollLive() {
+        const result = await Nexorix.api("/api/bank/events");
+        if (!result.ok || !Array.isArray(result.data)) return;
+        const latest = result.data[0];
+        const top = latest ? latest.id : 0;
+        if (liveTop !== null && top !== liveTop && latest) {
+            const sign = latest.direction === "DEBIT" ? "−" : "+";
+            const what = latest.kind === "EXPENSE" ? "💳 Compra" : latest.kind === "INCOME" ? "Ingreso" : "Movimiento";
+            Nexorix.toast(`${what}: ${latest.label} ${sign}${money(latest.amount)}`, latest.status === "BLOCKED" ? "error" : "");
+            await loadMoney();
+        }
+        liveTop = top;
+    }
+
+    function startLive() {
+        if (liveTimer) return;
+        pollLive();
+        liveTimer = setInterval(() => { if (!document.hidden) pollLive(); }, 6000);
     }
 
     function renderSuggestions(suggestions) {
@@ -704,15 +655,17 @@
         $("movements").innerHTML = list.map(t => {
             const internal = internalOf(t) > 0;
             const isIncome = t.type === "INGRESO";
+            const card = t.source === "CARD" && !internal && !isIncome; // compra con tarjeta
             const kind = internal ? "moved" : (isIncome ? "in" : "out");
             const sign = isIncome ? "+" : "−";
             return `
                 <div class="ledger-row">
-                    <span class="dot ${kind}">${Nexorix.icon(internal ? "moved" : kind)}</span>
+                    <span class="dot ${card ? "card" : kind}">${Nexorix.icon(card ? "card" : internal ? "moved" : kind)}</span>
                     <div>
                         <div class="title">
                             ${esc(t.description)}
                             ${internal ? '<span class="tag">Entre tus cuentas</span>' : ""}
+                            ${card ? '<span class="tag card-tag">Tarjeta</span>' : ""}
                         </div>
                         <div class="meta">
                             ${esc(t.bank)}, ${Nexorix.date(t.transactionDate)}
@@ -927,11 +880,13 @@
     // ============================================================
 
     async function loadMoney() {
-        const [dashboard, suggestions, history] = await Promise.all([
+        const [dashboard, suggestions, history, links] = await Promise.all([
             api("/api/dashboard"),
             api("/api/trace/suggestions"),
-            api("/api/trace/history")
+            api("/api/trace/history"),
+            api("/api/bank/links")
         ]);
+        linkedAccounts = new Set(links.ok && Array.isArray(links.data) ? links.data.map(l => l.accountId) : []);
 
         if (!dashboard.ok) {
             Nexorix.say(pageMessage, "No fue posible cargar tu información. Recarga la página.", "error");
@@ -993,6 +948,7 @@
             $("navSlot").outerHTML = Nexorix.nav("dashboard");
             await renderKyc(me.data);
             await loadMoney();
+            startLive();
 
             const imported = new URLSearchParams(window.location.search).get("importados");
             if (imported) {

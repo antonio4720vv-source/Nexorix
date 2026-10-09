@@ -256,7 +256,10 @@ public class PurchaseNoteService {
 
     public record NoteView(Long id, Long transactionId, String amount, String description, String purchaseDate,
                            String status, String answerType, String transcript, Map<String, String> values,
-                           String errorMessage) {
+                           String errorMessage, String category) {
+    }
+
+    public record CategoryView(String name, long purchases, String total) {
     }
 
     @Transactional(readOnly = true)
@@ -292,6 +295,71 @@ public class PurchaseNoteService {
         }
         note.setValuesJson(writeValues(merged));
         return toView(noteRepository.save(note));
+    }
+
+    // ============================================================
+    // CATEGORIAS ("la columna de helados, la de cigarrillos...")
+    // ============================================================
+
+    static final int MAX_CATEGORIES = 40;
+
+    @Transactional(readOnly = true)
+    public List<CategoryView> categories(String username) {
+        return noteRepository.categoryTotals(user(username).getId()).stream()
+                .map(row -> new CategoryView((String) row[0], (Long) row[1], ((java.math.BigDecimal) row[2]).toPlainString()))
+                .toList();
+    }
+
+    /** Nombres de las categorias que ya usa la persona (para que la IA elija una existente). */
+    @Transactional(readOnly = true)
+    public List<String> categoryNames(User user) {
+        return noteRepository.categoryTotals(user.getId()).stream().map(row -> (String) row[0]).toList();
+    }
+
+    /** Lo ultimo que la persona hizo con ese comercio, si ya lo habia clasificado. */
+    @Transactional(readOnly = true)
+    public String suggestedCategory(User user, String description) {
+        if (description == null || description.isBlank()) {
+            return null;
+        }
+        return noteRepository.findFirstByUserIdAndDescriptionIgnoreCaseAndCategoryNotNullOrderByIdDesc(
+                user.getId(), description.trim()).map(PurchaseNote::getCategory).orElse(null);
+    }
+
+    /** La persona elige (o crea) la categoria de una compra. Vacio = quitarla. */
+    @Transactional
+    public NoteView updateCategory(String username, Long id, String category) {
+        User user = user(username);
+        PurchaseNote note = noteRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Compra no encontrada."));
+        String clean = cleanCategory(category);
+        if (clean != null && !clean.equalsIgnoreCase(note.getCategory())
+                && noteRepository.categoryTotals(user.getId()).size() >= MAX_CATEGORIES
+                && noteRepository.categoryTotals(user.getId()).stream().noneMatch(r -> clean.equalsIgnoreCase((String) r[0]))) {
+            throw new IllegalArgumentException("Puedes tener máximo " + MAX_CATEGORIES + " categorías.");
+        }
+        note.setCategory(canonical(user, clean));
+        return toView(noteRepository.save(note));
+    }
+
+    /** Si ya existe "Helados", escribir "helados" reutiliza el nombre existente. */
+    public String canonical(User user, String clean) {
+        if (clean == null) {
+            return null;
+        }
+        return categoryNames(user).stream().filter(clean::equalsIgnoreCase).findFirst().orElse(clean);
+    }
+
+    /** Recorta, quita espacios repetidos y pone la primera letra en mayuscula. Null si queda vacio. */
+    public static String cleanCategory(String category) {
+        String clean = category == null ? "" : category.trim().replaceAll("\\s+", " ");
+        if (clean.isEmpty() || clean.equalsIgnoreCase("null")) {
+            return null;
+        }
+        if (clean.length() > 40) {
+            throw new IllegalArgumentException("La categoría tiene máximo 40 caracteres.");
+        }
+        return clean.substring(0, 1).toUpperCase(Locale.ROOT) + clean.substring(1);
     }
 
     @Transactional
@@ -331,7 +399,7 @@ public class PurchaseNoteService {
     private NoteView toView(PurchaseNote note) {
         return new NoteView(note.getId(), note.getTransactionId(), note.getAmount().toPlainString(),
                 note.getDescription(), note.getPurchaseDate().toString(), note.getStatus().name(),
-                note.getAnswerType(), note.getTranscript(), valuesOf(note), note.getErrorMessage());
+                note.getAnswerType(), note.getTranscript(), valuesOf(note), note.getErrorMessage(), note.getCategory());
     }
 
     Map<String, String> valuesOf(PurchaseNote note) {

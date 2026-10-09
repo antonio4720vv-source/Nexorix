@@ -1,0 +1,13 @@
+fecha;descripcion;valor;referencia
+2026-09-01;Salario septiembre;3000000;NOMINA-09
+2026-09-02;Compra Exito Calle 80;-150000;
+2026-09-03;Pago PSE Claro;-89900;PSE-12345
+2026-09-05;Transferencia a Nequi;-500000;
+2026-09-05;Recibido de Davivienda;500000;
+2026-09-07;Rappi domicilio;-42500;
+2026-09-09;Starbucks;-18900;
+2026-09-12;Uber viaje;-23400;
+2026-09-15;Pago arriendo;-1200000;ARR-09
+2026-09-18;Netflix;-38900;
+2026-09-22;Droguería Cruz Verde;-67300;
+2026-09-28;Intereses ahorros;4200;

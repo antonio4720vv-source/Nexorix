@@ -104,6 +104,12 @@ public class AbuseProtectionFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+        response.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+        if (request.getRequestURI().startsWith("/api/")) {
+            // Datos financieros: ni el navegador ni un proxy deben guardarlos.
+            response.setHeader("Cache-Control", "no-store, max-age=0");
+            response.setHeader("Pragma", "no-cache");
+        }
 
         String method = request.getMethod().toUpperCase(Locale.ROOT);
         String path = request.getRequestURI();

@@ -48,6 +48,10 @@ public class WhatsappInboundService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.nexorix.transaction.TransactionEnricher enricher;
 
+    /** Opcional (no existe en algunas pruebas): avisa si la compra no encaja con los habitos de la persona. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PurchaseHabits habits;
+
     public WhatsappInboundService(
             WhatsappLinkRepository linkRepository,
             PurchaseNoteRepository noteRepository,
@@ -180,8 +184,11 @@ public class WhatsappInboundService {
         }
 
         List<PurchaseColumn> columns = tx.execute(status -> noteService.columnsOf(link.getUser()));
+        List<String> categories = tx.execute(status -> noteService.categoryNames(link.getUser()));
+        String suggested = tx.execute(status -> noteService.suggestedCategory(link.getUser(), note.getDescription()));
         PurchaseAnswerReader.Question question = new PurchaseAnswerReader.Question(
-                note.getDescription(), PurchaseQuestionNotifier.money(note.getAmount()), columns);
+                note.getDescription(), PurchaseQuestionNotifier.money(note.getAmount()), columns,
+                categories == null ? List.of() : categories, suggested);
 
         PurchaseAnswerReader.Answer answer;
         String answerType = message.type().equals("audio") ? "VOZ" : "TEXTO";
@@ -197,14 +204,23 @@ public class WhatsappInboundService {
         }
 
         String valuesJson = noteService.writeValues(answer.values());
-        tx.executeWithoutResult(status -> noteRepository.findById(note.getId())
-                .ifPresent(saved -> saved.answered(answerType, answer.transcript(), valuesJson)));
+        tx.executeWithoutResult(status -> noteRepository.findById(note.getId()).ifPresent(saved -> {
+            saved.answered(answerType, answer.transcript(), valuesJson);
+            saved.setCategory(noteService.canonical(link.getUser(), answer.category()));
+        }));
+        if (habits != null) {
+            try {
+                habits.review(note.getId());
+            } catch (RuntimeException exception) {
+                log.warn("No se pudo revisar si la compra {} es inusual: {}", note.getId(), exception.getMessage());
+            }
+        }
 
         if (enricher != null) {
             enricher.enrich(note.getTransactionId(), answer.values().get("producto"));
         }
 
-        reply(message, summary(columns, answer.values()));
+        reply(message, summary(columns, answer.values(), answer.category()));
         return Outcome.ANSWERED;
     }
 
@@ -253,8 +269,16 @@ public class WhatsappInboundService {
     }
 
     static String summary(List<PurchaseColumn> columns, Map<String, String> values) {
+        return summary(columns, values, null);
+    }
+
+    static String summary(List<PurchaseColumn> columns, Map<String, String> values, String category) {
         StringBuilder text = new StringBuilder("✅ Guardado en tu tabla de compras:");
         boolean any = false;
+        if (category != null && !category.isBlank()) {
+            text.append("\n• Categoría: ").append(category);
+            any = true;
+        }
         for (PurchaseColumn column : columns) {
             String value = values.get(column.getKey());
             if (value != null && !value.isBlank()) {

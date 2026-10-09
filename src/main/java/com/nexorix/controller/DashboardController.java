@@ -59,6 +59,7 @@ public class DashboardController {
         // Dinero total: las transferencias internas no lo cambian,
         // porque el dinero solo paso de una cuenta a otra.
         BigDecimal totalBalance = accounts.stream()
+                .filter(a -> !a.isCredit())
                 .map(Account::getBalance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -79,7 +80,8 @@ public class DashboardController {
 
         // Flujo real de dinero calculado con Trace.
         MoneyFlowSummary moneyFlow =
-                moneyFlowService.summarize(username);
+                moneyFlowService.summarize(username,
+                        java.time.LocalDate.now().withDayOfMonth(1), java.time.LocalDate.now());
 
         return ResponseEntity.ok(
                 new DashboardResponse(

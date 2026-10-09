@@ -48,4 +48,31 @@ class PurchaseAnswerReaderTest {
         assertThat(PurchaseAnswerReader.cleanMime(null)).isEqualTo("audio/ogg");
         assertThat(PurchaseAnswerReader.cleanMime("text/html")).isEqualTo("audio/ogg");
     }
+
+    @Test
+    void leeLaCategoriaQueProponeLaIa() {
+        PurchaseAnswerReader.Answer answer = reader.parse(
+                "{\"transcripcion\":\"helado\",\"categoria\":\"  helados \",\"valores\":{\"producto\":\"Cono\"}}",
+                new PurchaseAnswerReader.Question("Crepes", "$8.000", columns), null);
+
+        assertThat(answer.category()).isEqualTo("Helados");
+    }
+
+    @Test
+    void sinCategoriaDeLaIaUsaLaQueLaPersonaYaUsabaEnEseComercio() {
+        PurchaseAnswerReader.Answer answer = reader.parse(
+                "{\"transcripcion\":\"algo\",\"categoria\":null,\"valores\":{\"producto\":\"Cono\"}}",
+                new PurchaseAnswerReader.Question("Crepes", "$8.000", columns, List.of("Helados"), "Helados"), null);
+
+        assertThat(answer.category()).isEqualTo("Helados");
+    }
+
+    @Test
+    void unaCategoriaDemasiadoLargaSeDescartaEnLugarDeCortarla() {
+        PurchaseAnswerReader.Answer answer = reader.parse(
+                "{\"transcripcion\":\"x\",\"categoria\":\"" + "a".repeat(80) + "\",\"valores\":{\"producto\":\"Cono\"}}",
+                new PurchaseAnswerReader.Question("Crepes", "$8.000", columns), null);
+
+        assertThat(answer.category()).isNull();
+    }
 }

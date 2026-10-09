@@ -1,6 +1,8 @@
 package com.nexorix.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.nexorix.security.EncryptedStringConverter;
+import com.nexorix.security.FieldCipher;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -23,11 +25,25 @@ public class User {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    @Column(nullable = false, unique = true, length = 150)
+    /** Cifrado en la base de datos (AES-256-GCM). Para buscar se usa emailIndex. */
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, length = 400)
     private String email;
 
-    @Column(nullable = false, unique = true, length = 30)
+    /** Cifrado en la base de datos (AES-256-GCM). Para buscar se usa cedulaIndex. */
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, length = 400)
     private String cedula;
+
+    /** Huella (HMAC) del correo: permite buscarlo y exigir que sea unico sin guardarlo en claro. */
+    @JsonIgnore
+    @Column(name = "email_idx", unique = true, length = 64)
+    private String emailIndex;
+
+    /** Huella (HMAC) de la cedula. */
+    @JsonIgnore
+    @Column(name = "cedula_idx", unique = true, length = 64)
+    private String cedulaIndex;
 
     /** Contrasena (BCrypt). Se pide en cada inicio de sesion. */
     @JsonIgnore
@@ -76,8 +92,13 @@ public class User {
     private boolean whatsappNotificationsEnabled = false;
 
     /** Celular (solo digitos, con indicativo) para alertas criticas por WhatsApp y SMS. */
-    @Column(name = "security_phone", length = 20)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "security_phone", length = 400)
     private String securityPhone;
+
+    /** Foto de perfil: imagen JPEG/PNG/WEBP ya reducida, como data URL. */
+    @Column(name = "photo", columnDefinition = "text")
+    private String photo;
 
     protected User() {
     }
@@ -92,8 +113,8 @@ public class User {
         this.publicId = UUID.randomUUID().toString();
         this.name = name;
         this.username = username;
-        this.email = email;
-        this.cedula = cedula;
+        setEmail(email);
+        setCedula(cedula);
         this.passwordHash = passwordHash;
         this.pinHash = null;
         this.kycStatus = KycStatus.PENDING;
@@ -131,6 +152,7 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+        this.emailIndex = FieldCipher.blindIndex(email);
     }
 
     public String getCedula() {
@@ -139,6 +161,15 @@ public class User {
 
     public void setCedula(String cedula) {
         this.cedula = cedula;
+        this.cedulaIndex = FieldCipher.blindIndex(cedula);
+    }
+
+    public String getEmailIndex() {
+        return emailIndex;
+    }
+
+    public String getCedulaIndex() {
+        return cedulaIndex;
     }
 
     public String getPasswordHash() {
@@ -175,6 +206,14 @@ public class User {
 
     public void setWhatsappNotificationsEnabled(boolean enabled) {
         this.whatsappNotificationsEnabled = enabled;
+    }
+
+    public String getPhoto() {
+        return photo;
+    }
+
+    public void setPhoto(String photo) {
+        this.photo = photo;
     }
 
     public String getSecurityPhone() {

@@ -12,6 +12,9 @@ import com.nexorix.fraud.FraudEngine.Verdict;
 import com.nexorix.fraud.Geo;
 import com.nexorix.fraud.GeoLocator;
 import com.nexorix.importer.TransactionClassifier;
+import com.nexorix.split.SplitPaymentMatcher;
+import com.nexorix.split.SplitShare;
+import com.nexorix.split.SplitShareRepository;
 import com.nexorix.transaction.PurchaseRegisteredEvent;
 import com.nexorix.transaction.Transaction;
 import com.nexorix.transaction.TransactionService;
@@ -36,7 +39,8 @@ import java.util.stream.Collectors;
  *   1. clasificar (gasto / transferencia interna / a tercero / ingreso)
  *   2. antifraude: imposibilidad fisica -> BLOQUEA y alerta por app + WhatsApp + SMS
  *   3. si pasa: guarda la transaccion, aprende el comportamiento y avisa si es una anomalia (solo app)
- *   4. si es gasto o transferencia a tercero y la persona activo el opt-in: pregunta por WhatsApp
+ *   4. si es una compra con tarjeta: pregunta SIEMPRE por WhatsApp que compro (la transferencia a un
+ *      tercero solo si la persona activo el opt-in)
  *
  * Todo en una sola transaccion; WhatsApp / SMS salen despues del commit y en otro hilo.
  */
@@ -56,10 +60,12 @@ public class BankSyncService {
     private final GeoLocator geoLocator;
     private final AppNotificationRepository notifications;
     private final ApplicationEventPublisher publisher;
+    private final SplitShareRepository splitShares;
 
     public BankSyncService(BankLinkRepository links, BankEventRepository events, UserRepository users,
                            TransactionService transactions, FraudEngine fraud, GeoLocator geoLocator,
-                           AppNotificationRepository notifications, ApplicationEventPublisher publisher) {
+                           AppNotificationRepository notifications, ApplicationEventPublisher publisher,
+                           SplitShareRepository splitShares) {
         this.links = links;
         this.events = events;
         this.users = users;
@@ -68,6 +74,7 @@ public class BankSyncService {
         this.geoLocator = geoLocator;
         this.notifications = notifications;
         this.publisher = publisher;
+        this.splitShares = splitShares;
     }
 
     @Transactional
@@ -104,7 +111,8 @@ public class BankSyncService {
             event.counterpartyRef(other.accountRef() != null ? other.accountRef() : other.document());
         }
 
-        Verdict verdict = fraud.evaluate(user, observation(event, geo));
+        Verdict verdict = worst(fraud.evaluate(user, observation(event, geo)),
+                cardCheck(link.getAccount(), p, event.getOccurredAt().toLocalDate()));
         event.risk(verdict.level().name(), verdict.reason());
 
         if (verdict.level() == Level.CRITICAL) {
@@ -149,10 +157,18 @@ public class BankSyncService {
         Transaction saved = transactions.saveFromBank(event.getAccount(), event.getAmount(),
                 debit ? "EGRESO" : "INGRESO", description, event.getOccurredAt(),
                 reference.length() > 150 ? reference.substring(0, 150) : reference);
+        if (kind == BankMovementKind.EXPENSE) {
+            saved.setSource("CARD"); // la pagina dibuja una tarjeta en las compras con tarjeta
+        }
         event.applied(finalStatus, saved.getId());
         events.save(event);
 
         fraud.learn(user, observation(event, geo));
+
+        // Dinero que llega de una persona: si cuadra con lo que te debe por Dividir gastos, queda saldado solo.
+        if (!debit) {
+            settleSplitPayment(event, user);
+        }
 
         // Anomalia leve: solo aparece dentro de la app, sin alarmar por canales externos.
         if (verdict.level() == Level.ANOMALY) {
@@ -160,14 +176,54 @@ public class BankSyncService {
                     verdict.reason() + " (" + PurchaseQuestionNotifier.money(event.getAmount()) + ").", event.getId()));
         }
 
-        // Opt-in: sin el flag, los gastos comunes no generan ningun WhatsApp.
-        boolean asksContext = kind == BankMovementKind.EXPENSE || kind == BankMovementKind.THIRD_PARTY_TRANSFER;
-        if (asksContext && user.isWhatsappNotificationsEnabled()) {
+        // Toda compra con tarjeta pregunta "¿que compraste?" (si hay un WhatsApp verificado; el notifier lo revisa).
+        // Las transferencias a terceros siguen siendo opt-in.
+        boolean asks = kind == BankMovementKind.EXPENSE
+                || (kind == BankMovementKind.THIRD_PARTY_TRANSFER && user.isWhatsappNotificationsEnabled());
+        if (asks) {
             publisher.publishEvent(new PurchaseRegisteredEvent(saved.getId(), user.getId(), event.getAmount(),
                     kind == BankMovementKind.EXPENSE ? event.getLabel() : "una transferencia a " + event.getLabel(),
                     event.getOccurredAt()));
         }
         return new Result(finalStatus.name(), kind.name(), event.getId(), verdict.level().name(), verdict.reason());
+    }
+
+    /**
+     * Antirrobo por tarjeta: si el banco informa con que tarjeta se hizo la compra y la cuenta tiene sus datos,
+     * una tarjeta vencida o distinta de la registrada es sospechosa. (La vencida bloquea; la distinta solo alerta.)
+     */
+    static Verdict cardCheck(com.nexorix.account.Account account, BankWebhookPayload p, java.time.LocalDate day) {
+        if (p.cardLast4() == null || p.cardLast4().isBlank() || !"DEBIT".equalsIgnoreCase(p.direction())) {
+            return new Verdict(Level.NONE, null, null, 0, 0);
+        }
+        if (account.isCardExpiredOn(day)) {
+            return new Verdict(Level.CRITICAL, "Se usó una tarjeta vencida (••" + p.cardLast4() + ").", null, 0, 0);
+        }
+        if (account.getCardLast4() != null && !account.getCardLast4().equals(p.cardLast4().trim())) {
+            return new Verdict(Level.ANOMALY, "Compra con una tarjeta (••" + p.cardLast4().trim()
+                    + ") que no es la registrada en esta cuenta (••" + account.getCardLast4() + ").", null, 0, 0);
+        }
+        return new Verdict(Level.NONE, null, null, 0, 0);
+    }
+
+    static Verdict worst(Verdict a, Verdict b) {
+        return b.level().ordinal() >= a.level().ordinal() && b.level() != Level.NONE ? b : a;
+    }
+
+    private void settleSplitPayment(BankEvent event, User user) {
+        String name = event.getKind() == BankMovementKind.EXPENSE ? null : event.getLabel();
+        String label = name == null || name.equals("Movimiento bancario") ? null : name;
+        String ref = event.getCounterpartyRef();
+        SplitPaymentMatcher.pick(splitShares.findOpenForPayerByAmount(user.getId(), event.getAmount()), label, ref)
+                .ifPresent(share -> {
+                    share.settle();
+                    splitShares.save(share);
+                    String title = share.getExpense().getTitle() == null || share.getExpense().getTitle().isBlank()
+                            ? "una cuenta dividida" : "«" + share.getExpense().getTitle() + "»";
+                    notifications.save(new AppNotification(user, Severity.INFO, "Te pagaron una división",
+                            share.getParticipant().getName() + " te pagó " + PurchaseQuestionNotifier.money(event.getAmount())
+                                    + " de " + title + ". Lo marcamos como saldado.", event.getId()));
+                });
     }
 
     private void alertCritical(User user, BankEvent event, Verdict verdict) {

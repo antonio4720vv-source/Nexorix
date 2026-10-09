@@ -13,4 +13,9 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
     Optional<AppNotification> findByIdAndUserId(Long id, Long userId);
 
     long countByUserIdAndReadFalse(Long userId);
+
+    /** Avisos nuevos que todavia no salieron como notificacion del dispositivo. */
+    @org.springframework.data.jpa.repository.Query(
+            "select n from AppNotification n join fetch n.user where n.pushed = false and n.createdAt > :since order by n.id")
+    List<AppNotification> findPendingPush(@org.springframework.data.repository.query.Param("since") java.time.LocalDateTime since);
 }

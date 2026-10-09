@@ -29,13 +29,16 @@ public class BankDemoService {
     private final BankSyncService sync;
     private final BankLinkRepository links;
     private final UserRepository users;
+    private final com.nexorix.split.SplitShareRepository shares;
     private final boolean enabled;
 
     public BankDemoService(BankSyncService sync, BankLinkRepository links, UserRepository users,
+                           com.nexorix.split.SplitShareRepository shares,
                            @Value("${nexorix.bank.demo-enabled:true}") boolean enabled) {
         this.sync = sync;
         this.links = links;
         this.users = users;
+        this.shares = shares;
         this.enabled = enabled;
     }
 
@@ -67,11 +70,24 @@ public class BankDemoService {
                 yield results;
             }
             case "COMPRA" -> List.of(sync.process(card(ref, "Éxito", 48_900, BOGOTA, now)));
+            case "TARJETA_AJENA" -> List.of(sync.process(new BankWebhookPayload("demo-" + UUID.randomUUID(), "DEMO", ref,
+                    "DEBIT", BigDecimal.valueOf(89_000), "COP", "ONLINE", "Tienda Online Desconocida", null, BOGOTA,
+                    now, "0000")));
             case "COMPRA_INUSUAL" -> List.of(sync.process(card(ref, "Joyería Diamante Real", 1_250_000, BOGOTA, now)));
             case "TRANSFER_PROPIA" -> List.of(sync.process(transfer(ref, "Mis ahorros",
                     new Counterparty(user.getName(), null, user.getCedula()), 200_000, now)));
             case "TRANSFER_TERCERO" -> List.of(sync.process(transfer(ref, "Carlos Pérez",
                     new Counterparty("Carlos Pérez", "nequi-3001112233", "1020304050"), 80_000, now)));
+            case "PAGO_DIVISION" -> {
+                var open = shares.findOpenForPayer(user.getId());
+                if (open.isEmpty()) {
+                    throw new IllegalArgumentException("Primero divide una cuenta (Demo → Dividir una cena).");
+                }
+                var share = open.get(0);
+                yield List.of(sync.process(new BankWebhookPayload("demo-" + UUID.randomUUID(), "DEMO", ref, "CREDIT",
+                        share.getAmount(), "COP", "TRANSFER", share.getParticipant().getName(),
+                        new Counterparty(share.getParticipant().getName(), "nequi-demo", null), null, now)));
+            }
             case "VIAJE_IMPOSIBLE" -> List.of(
                     sync.process(card(ref, "Éxito", 52_000, BOGOTA, now.minusHours(1))),
                     sync.process(card(ref, "Best Buy Miami", 3_400_000, MIAMI, now)));

@@ -94,6 +94,19 @@ public class PurchaseNoteController {
         return service.notes(username());
     }
 
+    public record CategoryRequest(String category) {
+    }
+
+    @GetMapping("/categorias")
+    public List<PurchaseNoteService.CategoryView> categories() {
+        return service.categories(username());
+    }
+
+    @PutMapping("/{id}/categoria")
+    public PurchaseNoteService.NoteView updateCategory(@PathVariable Long id, @RequestBody CategoryRequest body) {
+        return service.updateCategory(username(), id, body == null ? null : body.category());
+    }
+
     @PutMapping("/{id}")
     public PurchaseNoteService.NoteView updateValues(@PathVariable Long id, @RequestBody Map<String, String> values) {
         return service.updateValues(username(), id, values);
