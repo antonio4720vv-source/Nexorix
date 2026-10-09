@@ -67,12 +67,209 @@ const Nexorix = {
 
     /** Barra de navegacion comun: marca la pagina actual. */
     nav(active) {
-        const links = [["dashboard", "/dashboard.html", "Panel"], ["traza", "/traza.html", "Trace"],
-            ["contador", "/contador.html", "Contador"], ["reportes", "/reportes.html", "Reportes"],
-            ["compras", "/compras.html", "Compras"], ["dividir", "/dividir.html", "Dividir gastos"],
-            ["seguridad", "/seguridad.html", "Seguridad"]];
-        return '<nav class="main-nav" aria-label="Secciones">' + links.map(([id, href, label]) =>
-            `<a href="${href}"${id === active ? ' aria-current="page"' : ""}>${label}</a>`).join("") + "</nav>";
+        const links = [["dashboard", "/dashboard.html", "nav.panel"], ["contador", "/contador.html", "nav.contador"],
+            ["compras", "/compras.html", "nav.compras"], ["dividir", "/dividir.html", "nav.dividir"],
+            ["seguridad", "/seguridad.html", "nav.seguridad"], ["ajustes", "/ajustes.html", "nav.ajustes"]];
+        return '<nav class="main-nav" aria-label="Secciones">' + links.map(([id, href, key]) =>
+            `<a href="${href}"${id === active ? ' aria-current="page"' : ""}>${Nexorix.t(key)}</a>`).join("") + "</nav>";
+    },
+
+    /* ---------- Idioma ---------- */
+
+    /** Textos de la interfaz comun (navegacion, barra Demo, ajustes). Lo demas de cada pagina sigue en espanol. */
+    i18n: {
+        es: {
+            "nav.panel": "Panel", "nav.contador": "Contador y reportes", "nav.compras": "Compras",
+            "nav.dividir": "Dividir gastos", "nav.seguridad": "Seguridad", "nav.ajustes": "Ajustes",
+            "demo.label": "Demo", "demo.on": "Demo activo", "demo.title": "Modo Demo: datos de ejemplo para probar cada función.",
+            "demo.load": "Cargar datos de ejemplo", "demo.exit": "Salir del demo", "demo.simulate": "Simular:",
+            "demo.COMPRA": "Compra", "demo.COMPRA_INUSUAL": "Compra inusual", "demo.TRANSFER_PROPIA": "Transferencia propia",
+            "demo.TRANSFER_TERCERO": "Transferencia a tercero", "demo.VIAJE_IMPOSIBLE": "Viaje imposible",
+            "settings.title": "Ajustes", "settings.language": "Idioma", "settings.languageHelp":
+                "Cambia los menús, los botones generales y esta página. El resto del contenido sigue en español por ahora.",
+            "settings.demo": "Modo Demo", "settings.demoHelp": "Muestra la barra Demo para probar cada función con datos de ejemplo.",
+            "settings.saved": "Idioma guardado.", "settings.es": "Español", "settings.en": "English"
+        },
+        en: {
+            "nav.panel": "Dashboard", "nav.contador": "Accounting & reports", "nav.compras": "Purchases",
+            "nav.dividir": "Split expenses", "nav.seguridad": "Security", "nav.ajustes": "Settings",
+            "demo.label": "Demo", "demo.on": "Demo on", "demo.title": "Demo mode: sample data to try every feature.",
+            "demo.load": "Load sample data", "demo.exit": "Exit demo", "demo.simulate": "Simulate:",
+            "demo.COMPRA": "Purchase", "demo.COMPRA_INUSUAL": "Unusual purchase", "demo.TRANSFER_PROPIA": "Own transfer",
+            "demo.TRANSFER_TERCERO": "Transfer to third party", "demo.VIAJE_IMPOSIBLE": "Impossible trip",
+            "settings.title": "Settings", "settings.language": "Language", "settings.languageHelp":
+                "Changes menus, general buttons and this page. The rest of the content stays in Spanish for now.",
+            "settings.demo": "Demo mode", "settings.demoHelp": "Shows the Demo bar to try each feature with sample data.",
+            "settings.saved": "Language saved.", "settings.es": "Español", "settings.en": "English"
+        }
+    },
+
+    /** Idioma elegido en este navegador: "es" (por defecto) o "en". */
+    lang() {
+        try {
+            return localStorage.getItem("nexorix.lang") === "en" ? "en" : "es";
+        } catch (error) {
+            return "es";
+        }
+    },
+
+    setLang(code) {
+        try {
+            localStorage.setItem("nexorix.lang", code === "en" ? "en" : "es");
+        } catch (error) {
+            // Sin almacenamiento (navegador privado): el cambio dura solo esta vista.
+        }
+    },
+
+    /** Texto traducido; si falta en ingles, cae al espanol. */
+    t(key) {
+        const table = Nexorix.i18n[Nexorix.lang()] || {};
+        return table[key] || Nexorix.i18n.es[key] || key;
+    },
+
+    /** Aplica el idioma a los elementos con data-i18n (cambia su texto). */
+    applyLang() {
+        document.documentElement.lang = Nexorix.lang();
+        document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = Nexorix.t(el.dataset.i18n));
+    },
+
+    /* ---------- Modo Demo ---------- */
+
+    demo: {
+        /** Escenarios de la barra Demo: el servidor los arma como webhooks del banco. */
+        scenarios: ["COMPRA", "COMPRA_INUSUAL", "TRANSFER_PROPIA", "TRANSFER_TERCERO", "VIAJE_IMPOSIBLE"],
+
+        isOn() {
+            try {
+                return localStorage.getItem("nexorix.demo") === "on";
+            } catch (error) {
+                return false;
+            }
+        },
+
+        /** Enciende o apaga la barra Demo en este navegador. */
+        set(on) {
+            try {
+                localStorage.setItem("nexorix.demo", on ? "on" : "off");
+            } catch (error) {
+                // Sin almacenamiento: la barra solo dura en esta vista.
+            }
+            Nexorix.mountDemo();
+        },
+
+        /** Enciende el modo Demo y, si aun no hay datos de ejemplo, los crea. */
+        async enable() {
+            Nexorix.demo.set(true);
+            try {
+                await Nexorix.demo.seed();
+            } catch (error) {
+                Nexorix.toast(error.message, "error");
+            }
+            document.dispatchEvent(new Event("nexorix:changed"));
+        },
+
+        /** Crea cuentas de ejemplo, vincula una al banco y carga compras habituales. */
+        async seed() {
+            const existing = await Nexorix.api("/api/accounts");
+            if (!existing.ok) throw new Error(Nexorix.errorOf(existing, "No fue posible leer tus cuentas."));
+            if (existing.data.some(a => String(a.name).endsWith("(ejemplo)"))) return;
+
+            const create = async (path, params) => {
+                const result = await Nexorix.api(path + "?" + new URLSearchParams(params), { method: "POST" });
+                if (!result.ok) throw new Error(Nexorix.errorOf(result, "No fue posible crear el ejemplo."));
+                return result.data;
+            };
+
+            const nequi = await create("/api/accounts",
+                { name: "Nequi (ejemplo)", bank: "Nequi", type: "BILLETERA", balance: 3000000 });
+            await create("/api/accounts",
+                { name: "Davivienda (ejemplo)", bank: "Davivienda", type: "AHORROS", balance: 0 });
+            await create("/api/transactions",
+                { accountId: nequi.id, type: "INGRESO", amount: 3000000, description: "Salario" });
+
+            const linked = await Nexorix.api("/api/bank/links", { method: "POST", json: { accountId: nequi.id } });
+            if (!linked.ok) throw new Error(Nexorix.errorOf(linked, "No fue posible vincular el banco de ejemplo."));
+            await Nexorix.demo.run("SEMILLA", true);
+            Nexorix.toast("Datos de ejemplo cargados. Prueba los demás escenarios desde la barra Demo.");
+        },
+
+        /** Ejecuta un escenario del simulador de banco. */
+        async run(scenario, quiet) {
+            const result = await Nexorix.api("/api/bank/demo/" + scenario, { method: "POST" });
+            if (!result.ok) {
+                const message = Nexorix.errorOf(result, "No se pudo simular.");
+                if (!quiet) Nexorix.toast(message, "error");
+                throw new Error(message);
+            }
+            if (!quiet) {
+                Nexorix.toast(result.data.map(x => x.status).join(", ") + ". Revisa Panel y Contador y reportes.");
+                document.dispatchEvent(new Event("nexorix:changed"));
+            }
+            return result.data;
+        }
+    },
+
+    /**
+     * Dibuja lo comun en todas las paginas: boton Demo en la barra superior,
+     * barra Demo (si esta encendida) e idioma. Se llama al cargar la pagina.
+     */
+    mountDemo() {
+        const topbar = document.querySelector(".topbar");
+        if (!topbar) return;
+        let who = topbar.querySelector(".who");
+        if (!who) {
+            who = document.createElement("div");
+            who.className = "who";
+            topbar.appendChild(who);
+        }
+
+        let toggle = document.getElementById("demoToggle");
+        if (!toggle) {
+            toggle = document.createElement("button");
+            toggle.id = "demoToggle";
+            toggle.type = "button";
+            toggle.className = "demo-toggle";
+            toggle.addEventListener("click", () => Nexorix.demo.set(!Nexorix.demo.isOn()));
+            who.prepend(toggle);
+        }
+        const on = Nexorix.demo.isOn();
+        toggle.textContent = on ? Nexorix.t("demo.on") : Nexorix.t("demo.label");
+        toggle.setAttribute("aria-pressed", String(on));
+        toggle.title = Nexorix.t("demo.title");
+
+        let strip = document.getElementById("demoStrip");
+        if (!on) {
+            if (strip) strip.remove();
+            return;
+        }
+        if (!strip) {
+            strip = document.createElement("div");
+            strip.id = "demoStrip";
+            strip.className = "demo-strip";
+            strip.setAttribute("role", "region");
+            strip.setAttribute("aria-label", Nexorix.t("demo.title"));
+            topbar.after(strip);
+            strip.addEventListener("click", async (event) => {
+                const button = event.target.closest("button[data-demo]");
+                if (!button) return;
+                button.disabled = true;
+                try {
+                    if (button.dataset.demo === "load") await Nexorix.demo.enable();
+                    else if (button.dataset.demo === "exit") Nexorix.demo.set(false);
+                    else await Nexorix.demo.run(button.dataset.demo);
+                } catch (error) {
+                    Nexorix.toast(error.message, "error");
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        }
+        strip.innerHTML = `<p>${Nexorix.esc(Nexorix.t("demo.title"))}</p><div class="demo-actions">`
+            + `<button class="button small" type="button" data-demo="load">${Nexorix.esc(Nexorix.t("demo.load"))}</button>`
+            + `<span class="demo-label">${Nexorix.esc(Nexorix.t("demo.simulate"))}</span>`
+            + Nexorix.demo.scenarios.map(id => `<button class="button secondary small" type="button" data-demo="${id}">`
+                + `${Nexorix.esc(Nexorix.t("demo." + id))}</button>`).join("")
+            + `<button class="text-button" type="button" data-demo="exit">${Nexorix.esc(Nexorix.t("demo.exit"))}</button></div>`;
     },
 
     /** Iconos SVG (trazo simple, heredan el color del texto). */
@@ -204,6 +401,10 @@ const Nexorix = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+
+    // Idioma, boton Demo y barra Demo (comunes a todas las paginas).
+    Nexorix.applyLang();
+    Nexorix.mountDemo();
 
     // Dibuja el logo en cualquier elemento con la clase "brand-mark".
     document.querySelectorAll(".brand-mark").forEach(mark => {

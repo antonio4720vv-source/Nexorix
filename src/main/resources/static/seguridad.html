@@ -69,20 +69,6 @@
     </section>
 
     <section class="panel stack">
-        <div class="panel-head"><h2>Simulador de banco (demo)</h2></div>
-        <p>Envía webhooks de prueba por el mismo camino que usaría Plaid / Prometeo. Primero «Cargar hábitos».</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap" id="scenarios">
-            <button class="button secondary" data-s="SEMILLA" type="button">Cargar hábitos</button>
-            <button class="button secondary" data-s="COMPRA" type="button">Compra normal</button>
-            <button class="button secondary" data-s="COMPRA_INUSUAL" type="button">Comercio inusual</button>
-            <button class="button secondary" data-s="TRANSFER_PROPIA" type="button">Transferencia propia</button>
-            <button class="button secondary" data-s="TRANSFER_TERCERO" type="button">Transferencia a tercero</button>
-            <button class="button" data-s="VIAJE_IMPOSIBLE" type="button">Bogotá → Miami en 1 h</button>
-        </div>
-        <p id="simMsg"></p>
-    </section>
-
-    <section class="panel stack">
         <div class="panel-head"><h2>Movimientos del banco</h2></div>
         <div class="table-wrap"><table id="events"></table></div>
     </section>
@@ -192,12 +178,6 @@
             const r = await post("/api/bank/events/" + button.dataset.release + "/release");
             if (!r.ok) Nexorix.toast(Nexorix.errorOf(r, "No se pudo liberar."), "error");
             refresh();
-        }
-        if (button.dataset.s) {
-            const r = await post("/api/bank/demo/" + button.dataset.s);
-            $("simMsg").textContent = r.ok ? r.data.map((x) => `${x.status}${x.message ? ": " + x.message : ""}`).join(" | ")
-                : Nexorix.errorOf(r, "No se pudo simular.");
-            await refresh();
         }
     });
 

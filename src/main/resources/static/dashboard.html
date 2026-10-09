@@ -43,7 +43,6 @@
     <!-- Acciones rapidas (computador) -->
     <div class="quick-actions" id="quickActions" hidden>
         <button class="button" type="button" data-open="movementSheet">Registrar movimiento</button>
-        <button class="button secondary" type="button" data-open="transferSheet">Transferencia entre mis cuentas</button>
         <a class="button secondary" href="/contador.html">Contador</a>
         <button class="button secondary" type="button" data-open="accountSheet">Agregar cuenta</button>
     </div>
@@ -57,7 +56,6 @@
         </p>
         <div class="actions">
             <button class="button light" type="button" data-open="accountSheet">Agregar mi primera cuenta</button>
-            <button class="button" type="button" id="demoButton">Ver con datos de ejemplo</button>
         </div>
     </section>
 
@@ -127,7 +125,7 @@
                 <span class="count" id="pendingCount" hidden></span>
             </div>
             <div class="trace-list" id="suggestions"><div class="skeleton"></div></div>
-            <a class="text-button more-button" href="/traza.html" id="moreSuggestions" hidden>Ver todas en Trace</a>
+            <a class="text-button more-button" href="/contador.html#trace" id="moreSuggestions" hidden>Ver todas en Trace</a>
         </section>
     </div>
 
@@ -151,7 +149,7 @@
     <section class="panel stack" aria-labelledby="matchesTitle">
         <div class="panel-head">
             <h2 id="matchesTitle">Transferencias entre tus cuentas</h2>
-            <a href="/traza.html#historial" style="font-size:.85rem">Ver historial</a>
+            <a href="/contador.html#trace" style="font-size:.85rem">Ver historial</a>
         </div>
         <div class="trace-list" id="matches"></div>
     </section>
@@ -160,7 +158,6 @@
 <!-- Barra inferior (celular) -->
 <nav class="action-bar" id="actionBar" aria-label="Acciones" hidden>
     <button type="button" data-open="movementSheet"><span class="dot in" data-icon="plus"></span>Movimiento</button>
-    <button type="button" data-open="transferSheet"><span class="dot moved" data-icon="moved"></span>Transferir</button>
     <button type="button" data-href="/contador.html"><span class="dot" data-icon="upload" style="background:#eef3f1;color:var(--ink)"></span>Contador</button>
     <button type="button" data-open="accountSheet"><span class="dot out" data-icon="wallet" style="background:#eef3f1;color:var(--ink)"></span>Cuenta</button>
 </nav>
@@ -250,44 +247,6 @@
     </form>
 </dialog>
 
-<!-- Ventana: transferencia entre mis cuentas -->
-<dialog class="sheet" id="transferSheet" aria-labelledby="transferSheetTitle">
-    <form class="sheet-body" id="transferForm" novalidate>
-        <div class="sheet-head">
-            <h2 id="transferSheetTitle">Transferencia entre mis cuentas</h2>
-            <button class="close-button" type="button" data-close aria-label="Cerrar">&times;</button>
-        </div>
-        <p class="lead">
-            Registra un envío que ya hiciste de una cuenta tuya a otra. Nexorix no mueve
-            dinero: solo lo anota para que Trace lo reconozca.
-        </p>
-
-        <div class="row">
-            <div class="field">
-                <label for="transferFrom">Desde</label>
-                <select id="transferFrom"></select>
-            </div>
-            <div class="field">
-                <label for="transferTo">Hacia</label>
-                <select id="transferTo"></select>
-            </div>
-        </div>
-        <div class="field">
-            <label for="transferAmount">Monto</label>
-            <input id="transferAmount" inputmode="numeric" placeholder="0" required>
-        </div>
-        <p class="money-preview" id="transferAmountPreview"></p>
-        <div class="field">
-            <label for="transferNote">Nota (opcional)</label>
-            <input id="transferNote" maxlength="200" placeholder="Ej: Para el arriendo">
-        </div>
-
-        <div class="sheet-actions">
-            <button class="button" type="submit" id="transferSubmit">Registrar transferencia</button>
-        </div>
-    </form>
-</dialog>
-
 <script src="/nexorix.js"></script>
 <script src="/trace-ui.js"></script>
 <script src="/agente.js"></script>
@@ -345,17 +304,10 @@
             Nexorix.toast("Primero agrega una cuenta.", "error");
             id = "accountSheet";
         }
-        if (id === "transferSheet" && accounts.length < 2) {
-            Nexorix.toast("Necesitas al menos dos cuentas para registrar una transferencia.", "error");
-            return;
-        }
         fillAccountSelects();
         const sheet = $(id);
         sheet.querySelector("form").reset();
         sheet.querySelectorAll(".money-preview").forEach(p => p.textContent = "");
-        if (id === "transferSheet" && accounts.length > 1) {
-            $("transferTo").selectedIndex = 1;
-        }
         sheet.showModal();
         const first = sheet.querySelector("input:not([type=radio]), select");
         if (first) first.focus();
@@ -380,12 +332,11 @@
                 ? a.name : `${a.name} (${a.bank})`;
             return `<option value="${a.id}">${esc(label)}</option>`;
         }).join("");
-        ["movementAccount", "transferFrom", "transferTo"].forEach(id => $(id).innerHTML = options);
+        $("movementAccount").innerHTML = options;
     }
 
     Nexorix.moneyInput($("accountBalance"), $("accountBalancePreview"));
     Nexorix.moneyInput($("movementAmount"), $("movementAmountPreview"));
-    Nexorix.moneyInput($("transferAmount"), $("transferAmountPreview"));
 
     async function submitForm(button, path, params, okText, sheetId) {
         button.disabled = true;
@@ -442,72 +393,6 @@
         }
         submitForm($("movementSubmit"), "/api/transactions", params,
             "Movimiento registrado.", "movementSheet");
-    });
-
-    $("transferForm").addEventListener("submit", (event) => {
-        event.preventDefault();
-        const amount = Nexorix.parseMoney($("transferAmount").value);
-        if (isNaN(amount) || amount <= 0) {
-            Nexorix.toast("Escribe un monto mayor que cero.", "error");
-            return;
-        }
-        if ($("transferFrom").value === $("transferTo").value) {
-            Nexorix.toast("Elige dos cuentas diferentes.", "error");
-            return;
-        }
-        const params = {
-            fromAccountId: $("transferFrom").value,
-            toAccountId: $("transferTo").value,
-            amount
-        };
-        if ($("transferNote").value.trim()) {
-            params.description = $("transferNote").value.trim();
-        }
-        submitForm($("transferSubmit"), "/api/transactions/transfer", params,
-            "Transferencia registrada. Confírmala en \"Por confirmar\".", "transferSheet");
-    });
-
-    // ============================================================
-    // DATOS DE EJEMPLO (para mostrar el demo en segundos)
-    // ============================================================
-
-    $("demoButton").addEventListener("click", async () => {
-        const button = $("demoButton");
-        button.disabled = true;
-        Nexorix.toast("Creando datos de ejemplo...");
-
-        try {
-            const create = async (path, params) => {
-                const result = await api(path + "?" + new URLSearchParams(params), { method: "POST" });
-                if (!result.ok) {
-                    throw new Error(Nexorix.errorOf(result, "No fue posible crear el ejemplo."));
-                }
-                return result.data;
-            };
-
-            const nequi = await create("/api/accounts",
-                { name: "Nequi (ejemplo)", bank: "Nequi", type: "BILLETERA", balance: 3000000 });
-            const davi = await create("/api/accounts",
-                { name: "Davivienda (ejemplo)", bank: "Davivienda", type: "AHORROS", balance: 0 });
-            const nu = await create("/api/accounts",
-                { name: "Nu (ejemplo)", bank: "Nu", type: "AHORROS", balance: 0 });
-
-            await create("/api/transactions/transfer",
-                { fromAccountId: nequi.id, toAccountId: davi.id, amount: 1000000 });
-            await create("/api/transactions/transfer",
-                { fromAccountId: nequi.id, toAccountId: nu.id, amount: 1000000 });
-            await create("/api/transactions",
-                { accountId: davi.id, type: "INGRESO", amount: 3000000, description: "Salario" });
-            await create("/api/transactions",
-                { accountId: nu.id, type: "EGRESO", amount: 500000, description: "Mercado" });
-
-            Nexorix.toast("Listo. Ahora confirma las transferencias en \"Por confirmar\".");
-            await loadMoney();
-        } catch (error) {
-            Nexorix.toast(error.message, "error");
-        } finally {
-            button.disabled = false;
-        }
     });
 
     // ============================================================
@@ -605,7 +490,7 @@
         if (allMovements.length === 0) {
             $("truthSentence").textContent = "Aún no tienes movimientos.";
             $("truthAside").textContent =
-                "Registra un ingreso, un gasto o una transferencia entre tus cuentas para ver tu dinero real.";
+                "Registra un ingreso o un gasto para ver tu dinero real.";
             $("bars").hidden = true;
             $("pendingNote").hidden = true;
             return;

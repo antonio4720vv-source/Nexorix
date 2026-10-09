@@ -66,10 +66,4 @@ class PurchaseEventTest {
         service.createTransaction(BigDecimal.TEN, "INGRESO", "Salario", LocalDateTime.now(), 6L, null, "ana");
         assertThat(events).isEmpty();
     }
-
-    @Test
-    void unaTransferenciaEntreCuentasPropiasNoEsUnaCompra() {
-        service.registerTransfer(6L, 7L, new BigDecimal("1000"), null, "ana");
-        assertThat(events).isEmpty();
-    }
 }

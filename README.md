@@ -9,8 +9,8 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | Módulo | Descripción |
 |---|---|
 | Registro y acceso | Contraseña fuerte, verificación de identidad con Didit, PIN, bloqueo por intentos, recuperación con correo + identidad |
-| Cuentas y movimientos | Cuentas, ingresos, egresos y transferencias entre cuentas propias |
-| Trace V2 | Detecta transferencias entre cuentas propias 1→1, 1→N, N→1, con comisiones; confirmar, deshacer e historial |
+| Cuentas y movimientos | Cuentas, ingresos y egresos (Nexorix es un gestor contable personal, no un banco: no hay transferencias entre cuentas) |
+| Trace V2 (dentro de Contador y reportes) | Detecta transferencias entre cuentas propias 1→1, 1→N, N→1, con comisiones; confirmar, deshacer e historial |
 | Dinero real | Ingresos y gastos reales, sin transferencias internas; las comisiones sí cuentan como gasto |
 | Contador | Antes «Importación»: varios extractos PDF o CSV a la vez, en cola, con duplicados, clasificación y cuadre con los totales del banco, más un **historial de auditoría** de cada archivo |
 | Dividir gastos | Amigos por nombre de usuario, división en partes iguales y enlace de cobro para que cada amigo reembolse al pagador |

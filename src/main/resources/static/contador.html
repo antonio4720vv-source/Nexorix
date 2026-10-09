@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/nexorix.css">
-    <title>Nexorix - Contador</title>
+    <title>Nexorix - Contador y reportes</title>
 </head>
 <body>
 
@@ -28,12 +28,28 @@
     <a class="button secondary small" href="/dashboard.html">Volver al panel</a>
 </header>
 
-<main class="page" style="max-width:820px">
+<main class="page" style="max-width:980px">
+
+    <div class="page-head">
+        <div>
+            <h1>Contador y reportes</h1>
+            <p>Sube tus extractos, confirma las transferencias entre tus propias cuentas (Trace) y descarga
+               reportes listos para tu contador o tu declaración de renta.</p>
+        </div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Secciones de Contador y reportes">
+        <button role="tab" type="button" id="tabContador" aria-selected="true" aria-controls="viewContador">Extractos</button>
+        <button role="tab" type="button" id="tabReportes" aria-selected="false" aria-controls="viewReportes">Reportes</button>
+        <button role="tab" type="button" id="tabTrace" aria-selected="false" aria-controls="viewTrace">Trace</button>
+    </div>
+
+    <div id="viewContador" role="tabpanel" aria-labelledby="tabContador" class="stack">
 
     <!-- 1. Elegir archivos -->
     <form class="panel" id="uploadForm" novalidate>
         <div class="panel-head">
-            <h2 style="font-size:1.5rem">Contador</h2>
+            <h2 style="font-size:1.5rem">Extractos</h2>
         </div>
         <p class="muted" style="margin:-4px 0 16px">
             Sube uno o varios extractos (PDF o CSV) de una misma cuenta. Los leemos en segundo plano
@@ -106,9 +122,103 @@
         </p>
         <div class="audit-list" id="audit"><p class="empty">Todavía no has subido archivos.</p></div>
     </section>
+    </div>
+
+    <!-- Reportes (antes una pagina aparte) -->
+    <div id="viewReportes" role="tabpanel" aria-labelledby="tabReportes" hidden class="stack" style="margin-top:0">
+        <div class="page-head">
+            <div>
+                <h2>Reportes conciliados</h2>
+                <p>Listos para tu contador o tu declaración de renta: muestran tus ingresos y gastos <strong>reales</strong>
+                   y dejan por fuera el dinero que solo se movió entre tus cuentas.</p>
+            </div>
+        </div>
+        <section class="panel stack">
+            <div class="panel-head"><h2>Periodo</h2></div>
+            <div class="preset-row" id="presets">
+                <button type="button" data-preset="month" aria-pressed="true">Este mes</button>
+                <button type="button" data-preset="lastMonth" aria-pressed="false">Mes pasado</button>
+                <button type="button" data-preset="year" aria-pressed="false">Este año</button>
+                <button type="button" data-preset="lastYear" aria-pressed="false">Año pasado (renta)</button>
+                <button type="button" data-preset="all" aria-pressed="false">Todo</button>
+            </div>
+            <div class="row">
+                <div class="field"><label for="from">Desde</label><input type="date" id="from"></div>
+                <div class="field"><label for="to">Hasta</label><input type="date" id="to"></div>
+            </div>
+            <p class="notice" id="reportMessage" role="status" aria-live="polite"></p>
+        </section>
+
+        <div class="stat-grid" style="margin-top:22px">
+            <div class="stat in"><small>Ingresos reales</small><strong class="amt" id="sIncome">–</strong></div>
+            <div class="stat out"><small>Gastos reales</small><strong class="amt" id="sExpense">–</strong></div>
+            <div class="stat moved"><small>Excluido (entre tus cuentas)</small><strong class="amt" id="sInternal">–</strong></div>
+            <div class="stat"><small>Flujo neto real</small><strong class="amt" id="sNet">–</strong></div>
+        </div>
+
+        <div class="grid-2" style="margin-top:0">
+            <section class="panel"><div class="panel-head"><h2>Ingresos reales</h2></div><div class="categories" id="incomes"></div></section>
+            <section class="panel"><div class="panel-head"><h2>Gastos reales</h2></div><div class="categories" id="expenses"></div></section>
+        </div>
+
+        <section class="panel stack">
+            <div class="panel-head"><h2>Descargar</h2><span class="muted" id="movementsCount" style="font-size:.85rem"></span></div>
+            <div class="download-row">
+                <a class="download-card" id="pdfLink" href="#" download>
+                    <span class="dot out" data-icon="file"></span>
+                    <span><strong>Resumen en PDF</strong><small>Para el contador: resumen, categorías, meses e ingresos reales.</small></span>
+                </a>
+                <a class="download-card" id="csvLink" href="#" download>
+                    <span class="dot in" data-icon="download"></span>
+                    <span><strong>Movimientos en CSV (Excel)</strong><small>Cada movimiento con su parte real y su parte interna.</small></span>
+                </a>
+            </div>
+            <p class="muted" style="font-size:.8rem;margin:14px 0 0">Informativo: no reemplaza la asesoría de un contador.
+               Las sugerencias de Trace sin confirmar siguen contando como ingreso o gasto real.</p>
+        </section>
+    </div>
+
+    <!-- Trace (antes una pagina aparte) -->
+    <div id="viewTrace" role="tabpanel" aria-labelledby="tabTrace" hidden class="stack" style="margin-top:0">
+        <div class="page-head">
+            <div>
+                <h2>Trace</h2>
+                <p>Las transferencias entre tus propias cuentas no son ingresos ni gastos. Trace las encuentra,
+                   incluso cuando una salida se reparte en varias cuentas (1 → N), varias salidas llegan juntas (N → 1)
+                   o el banco cobró una comisión.</p>
+            </div>
+            <button class="button secondary" type="button" id="askTrace"><span data-icon="ai" style="display:inline-flex"></span> Pregúntale a Nexo</button>
+        </div>
+
+        <div class="stat-grid" id="stats">
+            <div class="stat moved"><small>Por confirmar</small><strong id="statPending">–</strong></div>
+            <div class="stat"><small>Confirmadas</small><strong id="statConfirmed">–</strong></div>
+            <div class="stat moved"><small>Movido entre tus cuentas</small><strong class="amt" id="statInternal">–</strong></div>
+            <div class="stat out"><small>Comisiones pagadas</small><strong class="amt" id="statFees">–</strong></div>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Vista">
+            <button role="tab" type="button" id="tabPending" aria-selected="true" aria-controls="pendingView">Por confirmar<span class="count" id="countPending"></span></button>
+            <button role="tab" type="button" id="tabHistory" aria-selected="false" aria-controls="historyView">Historial<span class="count" id="countHistory"></span></button>
+        </div>
+
+        <section id="pendingView" role="tabpanel" aria-labelledby="tabPending">
+            <div id="pendingGroups"><div class="skeleton"></div><div class="skeleton"></div></div>
+        </section>
+
+        <section id="historyView" role="tabpanel" aria-labelledby="tabHistory" hidden>
+            <div class="preset-row" id="historyFilter">
+                <button type="button" data-filter="all" aria-pressed="true">Todas</button>
+                <button type="button" data-filter="active" aria-pressed="false">Confirmadas</button>
+                <button type="button" data-filter="undone" aria-pressed="false">Deshechas</button>
+            </div>
+            <div class="trace-list" id="historyList"></div>
+        </section>
+    </div>
 </main>
 
 <script src="/nexorix.js"></script>
+<script src="/trace-ui.js"></script>
 <script src="/agente.js"></script>
 <script>
     const $ = (id) => document.getElementById(id);
@@ -486,6 +596,205 @@
     });
 
     init();
+</script>
+<script>
+    // Vistas de la pagina: Extractos (esta), Reportes y Trace. Cada vista se carga al abrirla.
+    const VIEWS = {
+        contador: ["tabContador", "viewContador"],
+        reportes: ["tabReportes", "viewReportes"],
+        trace: ["tabTrace", "viewTrace"]
+    };
+    const views = {};
+
+    function showView(name) {
+        Object.entries(VIEWS).forEach(([key, [tab, view]]) => {
+            $(tab).setAttribute("aria-selected", String(key === name));
+            $(view).hidden = key !== name;
+        });
+        if (views[name]) views[name]();
+    }
+
+    function viewFromHash() {
+        const hash = location.hash.slice(1);
+        if (hash === "reportes") return "reportes";
+        if (hash === "trace" || hash === "historial") return "trace";
+        return "contador";
+    }
+
+    Object.keys(VIEWS).forEach(key => $(VIEWS[key][0]).addEventListener("click", () => {
+        history.replaceState(null, "", key === "contador" ? location.pathname : "#" + key);
+        showView(key);
+    }));
+</script>
+<script>
+    // ------------------------------------------------------------
+    // Reportes conciliados
+    // ------------------------------------------------------------
+    (() => {
+        const money = Nexorix.money;
+        const iso = (d) => d.toISOString().slice(0, 10);
+
+        function range(preset) {
+            const now = new Date();
+            const y = now.getFullYear(), m = now.getMonth();
+            switch (preset) {
+                case "month": return [new Date(y, m, 1), now];
+                case "lastMonth": return [new Date(y, m - 1, 1), new Date(y, m, 0)];
+                case "year": return [new Date(y, 0, 1), now];
+                case "lastYear": return [new Date(y - 1, 0, 1), new Date(y - 1, 11, 31)];
+                default: return [null, null];
+            }
+        }
+
+        function local(d) { return d ? new Date(d.getTime() - d.getTimezoneOffset() * 60000) : null; }
+
+        function query() {
+            const p = new URLSearchParams();
+            if ($("from").value) p.set("desde", $("from").value);
+            if ($("to").value) p.set("hasta", $("to").value);
+            const q = p.toString();
+            return q ? "?" + q : "";
+        }
+
+        function bars(container, data, color) {
+            const list = Object.entries(data || {});
+            if (!list.length) { container.innerHTML = '<p class="empty">Sin datos en el periodo.</p>'; return; }
+            const max = Math.max(...list.map(x => Number(x[1])));
+            container.innerHTML = list.map(([label, value]) => `
+                <div class="category-row">
+                    <div class="category-head"><span>${esc(label)}</span><strong class="amt">${money(value)}</strong></div>
+                    <div class="category-bar"><span style="width:${(Number(value) / max * 100).toFixed(1)}%;background:${color}"></span></div>
+                </div>`).join("");
+        }
+
+        let timer;
+        function refresh() {
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                const q = query();
+                $("pdfLink").href = "/api/reports/resumen.pdf" + q;
+                $("csvLink").href = "/api/reports/movimientos.csv" + q;
+                const result = await api("/api/reports/preview" + q);
+                if (!result.ok) {
+                    Nexorix.say($("reportMessage"), Nexorix.errorOf(result, "No fue posible calcular el reporte."), "error");
+                    return;
+                }
+                Nexorix.say($("reportMessage"), "", "");
+                const s = result.data.summary;
+                $("sIncome").textContent = money(s.realIncome);
+                $("sExpense").textContent = money(s.realExpense);
+                $("sInternal").textContent = money(s.internalTransfers);
+                $("sNet").textContent = money(s.realNetFlow);
+                $("movementsCount").textContent = `${result.data.movements} movimientos en el periodo`;
+                bars($("incomes"), result.data.incomes, "var(--real)");
+                bars($("expenses"), result.data.expenses, "var(--spend-light)");
+            }, 150);
+        }
+
+        function setPreset(preset) {
+            const [from, to] = range(preset);
+            $("from").value = from ? iso(local(from)) : "";
+            $("to").value = to ? iso(local(to)) : "";
+            $("presets").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.preset === preset)));
+            refresh();
+        }
+
+        $("presets").querySelectorAll("button").forEach(b => b.addEventListener("click", () => setPreset(b.dataset.preset)));
+        ["from", "to"].forEach(id => $(id).addEventListener("change", () => {
+            $("presets").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", "false"));
+            refresh();
+        }));
+
+        let started = false;
+        views.reportes = () => {
+            if (!started) { started = true; setPreset("month"); }
+        };
+    })();
+</script>
+<script>
+    // ------------------------------------------------------------
+    // Trace: transferencias entre cuentas propias
+    // ------------------------------------------------------------
+    (() => {
+        const money = Nexorix.money;
+        const GROUPS = [
+            ["TRANSFERENCIA PROPIA MUY PROBABLE", "Muy probables", "Cuadran exacto y en poco tiempo. Normalmente puedes confirmarlas sin dudar."],
+            ["TRANSFERENCIA PROPIA PROBABLE", "Probables", "Cuadran con una comisión, son 1 → N / N → 1 o pasó más tiempo. Revisa antes de confirmar."],
+            ["REVISAR", "Para revisar", "Hay coincidencia, pero con poca evidencia. Confírmalas solo si estás seguro."]
+        ];
+        let suggestions = [], groupsHistory = [], historyFilter = "all";
+
+        function showTab(tab) {
+            const pending = tab === "pending";
+            $("tabPending").setAttribute("aria-selected", String(pending));
+            $("tabHistory").setAttribute("aria-selected", String(!pending));
+            $("pendingView").hidden = !pending;
+            $("historyView").hidden = pending;
+        }
+
+        $("tabPending").addEventListener("click", () => showTab("pending"));
+        $("tabHistory").addEventListener("click", () => showTab("history"));
+
+        function renderPending() {
+            $("countPending").textContent = suggestions.length || "";
+            if (!suggestions.length) {
+                $("pendingGroups").innerHTML = `<div class="panel"><p class="empty">Todo al día: no hay transferencias por confirmar.
+                    Cuando registres o importes movimientos, Trace las buscará solo.</p></div>`;
+                return;
+            }
+            $("pendingGroups").innerHTML = GROUPS.map(([key, title, help]) => {
+                const list = suggestions.filter(s => s.classification === key);
+                if (!list.length) return "";
+                return `<section class="panel stack">
+                    <div class="panel-head"><h2>${title}</h2><span class="count">${list.length}</span></div>
+                    <p class="muted" style="margin:-6px 0 14px;font-size:.9rem">${help}</p>
+                    <div class="trace-list">${list.map(s => NexorixTrace.card(s)).join("")}</div>
+                </section>`;
+            }).join("");
+            NexorixTrace.bind($("pendingGroups"), suggestions, load);
+        }
+
+        function renderHistory() {
+            $("countHistory").textContent = groupsHistory.length || "";
+            const list = groupsHistory.filter(g => historyFilter === "all" || (historyFilter === "active") === g.active);
+            $("historyList").innerHTML = list.length
+                ? list.map(g => NexorixTrace.card(g, { history: true })).join("")
+                : '<div class="panel"><p class="empty">Todavía no hay transferencias en el historial.</p></div>';
+            NexorixTrace.bind($("historyList"), [], load);
+        }
+
+        $("historyFilter").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+            historyFilter = b.dataset.filter;
+            $("historyFilter").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+            renderHistory();
+        }));
+
+        async function load() {
+            const [s, h, o] = await Promise.all([api("/api/trace/suggestions"), api("/api/trace/history"), api("/api/trace/overview")]);
+            suggestions = s.ok ? s.data : [];
+            groupsHistory = h.ok ? h.data : [];
+            if (o.ok) {
+                $("statPending").textContent = o.data.pending;
+                $("statConfirmed").textContent = o.data.confirmed;
+                $("statInternal").textContent = money(o.data.internalAmount);
+                $("statFees").textContent = money(o.data.fees);
+            }
+            renderPending();
+            renderHistory();
+        }
+
+        document.addEventListener("nexorix:changed", () => { if (!$("viewTrace").hidden) load(); });
+        $("askTrace").addEventListener("click", () => NexoAgent.open("¿Qué transferencias entre mis cuentas tengo por confirmar y cuáles me recomiendas revisar?"));
+
+        views.trace = () => {
+            showTab("pending");
+            load();
+        };
+    })();
+</script>
+
+<script>
+    showView(viewFromHash());
 </script>
 
 </body>
