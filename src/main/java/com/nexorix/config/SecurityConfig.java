@@ -93,6 +93,16 @@ public class SecurityConfig {
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
                         .frameOptions(frame -> frame.deny())
+                        // HTTPS obligatorio durante un ano (solo se envia cuando la conexion ya es HTTPS).
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31_536_000))
+                        .crossOriginOpenerPolicy(coop -> coop.policy(
+                                org.springframework.security.web.header.writers.CrossOriginOpenerPolicyHeaderWriter
+                                        .CrossOriginOpenerPolicy.SAME_ORIGIN))
+                        .crossOriginResourcePolicy(corp -> corp.policy(
+                                org.springframework.security.web.header.writers.CrossOriginResourcePolicyHeaderWriter
+                                        .CrossOriginResourcePolicy.SAME_ORIGIN))
                         .referrerPolicy(referrer -> referrer.policy(
                                 ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                 )
@@ -101,7 +111,7 @@ public class SecurityConfig {
                 .logout(logout -> logout
                         .logoutUrl("/api/users/logout")
                         .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
+                        .deleteCookies("NXSESSION", "JSESSIONID")
                         .logoutSuccessHandler((request, response, authentication) ->
                                 response.setStatus(200)
                         )

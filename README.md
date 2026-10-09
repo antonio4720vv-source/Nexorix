@@ -244,6 +244,8 @@ Los scripts están en [`db/`](db/) y son **idempotentes** (se pueden repetir). O
 - Solicitudes que cambian datos solo desde la misma página (Origin / Sec-Fetch-Site); el webhook de Didit está exento y va firmado.
 - Límites por IP en inicio de sesión, PIN, registro y recuperación, además del bloqueo por usuario.
 - Cabeceras: CSP, frame-deny, Referrer-Policy, Permissions-Policy, HSTS en HTTPS.
+- **Cifrado de datos sensibles en la base de datos**: cédula, correo y celular se guardan con AES-256-GCM (nonce aleatorio, detecta alteraciones). Se buscan con una huella HMAC aparte, así que ni la base de datos revela esos datos. Clave: `NEXORIX_DATA_KEY` (`openssl rand -base64 32`), obligatoria en producción (`NEXORIX_COOKIE_SECURE=true`); guárdala fuera de la base de datos. Al arrancar, los datos que estaban en claro se cifran solos.
+- Contraseña y PIN con BCrypt; la API responde `Cache-Control: no-store`; errores internos nunca se muestran; cookie solo por cookie (no en la URL); cierre de sesión automático a los 10 min sin actividad en el navegador.
 - Reportes con `Cache-Control: no-store`, documento enmascarado y CSV protegido contra inyección de fórmulas.
 
 **¿Por qué no JWT?** Nexorix es una aplicación web del mismo dominio. Una cookie de sesión HttpOnly no la puede leer JavaScript, y se invalida al cerrar sesión. Un JWT guardado en el navegador queda expuesto si hay un XSS y no se puede revocar sin infraestructura extra. JWT tiene sentido cuando haya una app móvil nativa o una API para terceros.

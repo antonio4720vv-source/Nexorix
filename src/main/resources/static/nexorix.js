@@ -409,8 +409,30 @@ document.addEventListener("DOMContentLoaded", () => {
     // Dibuja el logo en cualquier elemento con la clase "brand-mark".
     document.querySelectorAll(".brand-mark").forEach(mark => {
         mark.innerHTML = Nexorix.icon("logo");
-        mark.style.color = "#5ee0c5";
+        mark.style.color = "#04101f";
     });
+
+    // Seguridad: en las paginas con sesion iniciada (las que tienen barra superior),
+    // si pasan 10 minutos sin tocar nada se cierra la sesion, como en una app de banco.
+    if (document.querySelector(".topbar")) {
+        const IDLE_MS = 10 * 60 * 1000;
+        let timer;
+        const expire = async () => {
+            try {
+                await Nexorix.api("/api/users/logout", { method: "POST" });
+            } catch (error) {
+                // igual se sale de la pagina
+            }
+            location.replace("/login.html?expirada=1");
+        };
+        const rearm = () => {
+            clearTimeout(timer);
+            timer = setTimeout(expire, IDLE_MS);
+        };
+        ["pointerdown", "keydown", "touchstart", "scroll"].forEach(name =>
+            document.addEventListener(name, rearm, { passive: true }));
+        rearm();
+    }
 
     // Casillas "Mostrar contraseña" / "Mostrar PIN".
     // Uso: <input type="checkbox" data-reveal="campo1,campo2">
