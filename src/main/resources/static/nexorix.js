@@ -446,7 +446,7 @@ const Nexorix = {
             event.stopPropagation();
             if (document.getElementById("menuPanel")) { close(); return; }
             const links = [...document.querySelectorAll(".main-nav a")].map(a =>
-                `<a href="${a.getAttribute("href")}"${a.getAttribute("aria-current") ? ' aria-current="page"' : ""}>${a.textContent}</a>`).join("");
+                `<a href="${a.getAttribute("href")}" class="${/seguridad|ajustes/.test(a.getAttribute("href")) ? "" : "primary"}"${a.getAttribute("aria-current") ? ' aria-current="page"' : ""}>${a.textContent}</a>`).join("");
             const demo = document.getElementById("demoToggle");
             const panel = document.createElement("div");
             panel.id = "menuPanel";

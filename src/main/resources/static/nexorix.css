@@ -2234,3 +2234,57 @@ dialog::backdrop { background: rgba(2, 4, 12, .7); backdrop-filter: blur(4px); }
     .push-offer { flex-wrap: wrap; }
 }
 .truth-head { margin-bottom: 8px; }
+
+/* Computador: Seguridad, Ajustes, Demo y Salir tambien viven en el menu de tres lineas */
+@media (min-width: 881px) {
+    .topbar .main-nav a[href="/seguridad.html"],
+    .topbar .main-nav a[href="/ajustes.html"],
+    .topbar #demoToggle,
+    .topbar #logoutButton { display: none !important; }
+
+    .menu-button { display: inline-grid; }
+    .menu-button:hover { border-color: var(--accent); color: var(--accent); }
+
+    .topbar { position: sticky; }
+
+    .menu-panel {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        right: 24px;
+        width: 250px;
+        margin-top: 8px;
+        padding: 8px;
+        gap: 2px;
+        border-radius: 16px;
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        box-shadow: var(--shadow-lift);
+        z-index: 30;
+    }
+
+    .menu-panel nav { display: flex; flex-direction: column; gap: 2px; }
+    .menu-panel nav a.primary { display: none; }
+
+    .menu-panel a,
+    .menu-panel button {
+        font: inherit;
+        font-weight: 700;
+        font-size: .95rem;
+        text-align: left;
+        text-decoration: none;
+        color: var(--text);
+        background: none;
+        border: none;
+        padding: 11px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    .menu-panel a:hover,
+    .menu-panel button:hover { background: var(--surface-2); }
+
+    .menu-panel a[aria-current="page"] { background: rgba(34, 211, 238, .14); color: var(--accent); }
+    .menu-panel .danger { color: var(--spend); border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; margin-top: 4px; }
+}
