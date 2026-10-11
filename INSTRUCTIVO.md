@@ -33,6 +33,8 @@ Después de cambiar variables, detén y vuelve a correr la app.
 
 ## 2. Servidor con HTTPS (obligatorio para celular, Didit y Meta)
 
+> **Para tenerla 24/7 sin IntelliJ ni ngrok, sigue `DESPLIEGUE-GRATIS.md`** (Oracle Cloud gratis + Docker; ya está todo preparado en el repo).
+
 - **Pruebas**: ngrok (`ngrok http 8080`). El dominio gratis cambia o se cae si cierras ngrok; cada cambio obliga a actualizar
   `NEXORIX_PUBLIC_URL` y los webhooks.
 - **Producción**: un dominio fijo con un hosting que ejecute Java 21 + PostgreSQL. Si hay un proxy delante, comprueba que

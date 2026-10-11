@@ -1,0 +1,7 @@
+.git
+.idea
+target
+android
+pruebas-carga
+*.md
+.env

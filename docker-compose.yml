@@ -1,0 +1,50 @@
+# Nexorix completo: la app, PostgreSQL y HTTPS. Uso:  docker compose up -d --build
+# Lee las variables del archivo .env (copia .env.example y rellénalo).
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: nexorix
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${NEXORIX_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nexorix"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      NEXORIX_DB_URL: jdbc:postgresql://db:5432/nexorix
+      NEXORIX_DB_USER: postgres
+      NEXORIX_PUBLIC_URL: https://${DOMINIO}
+      NEXORIX_COOKIE_SECURE: "true"
+
+  caddy:
+    image: caddy:2
+    restart: always
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
