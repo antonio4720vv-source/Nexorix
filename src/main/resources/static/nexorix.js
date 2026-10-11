@@ -173,7 +173,8 @@ const Nexorix = {
         /** Franja discreta con "Instalar" en las paginas con barra superior; se puede cerrar por 14 dias. */
         mountBanner() {
             const state = Nexorix.install.state();
-            if (state === "installed" || document.getElementById("installBanner")) return;
+            // Sin boton ni instruccion util (otros navegadores): no se muestra la franja; queda en Ajustes.
+            if (state === "installed" || state === "manual" || document.getElementById("installBanner")) return;
             try {
                 if (Date.now() < Number(localStorage.getItem("nexorix.installDismissed") || 0)) return;
             } catch (error) { /* sin almacenamiento */ }

@@ -4,13 +4,13 @@
 
 | Vía | Costo | Qué hace |
 |---|---|---|
-| Notificaciones de tus apps de banco (app Android de `android/`) | Gratis | Crea la cuenta del banco y registra cada ingreso, gasto o transferencia, con antifraude y pregunta por WhatsApp |
-| Extractos PDF/CSV en el Contador | Gratis | Importa meses completos |
-| Escribir movimientos y cuentas a mano | Gratis | Siempre disponible |
+| Notificaciones de tus apps de banco (app Android de `android/`) | Gratis | Identifica el banco por el nombre de la app, crea la cuenta y registra cada ingreso, gasto o transferencia, con antifraude y pregunta por WhatsApp |
+| Extractos PDF/CSV en el Contador | Gratis | Importa meses completos (la cuenta se crea ahí mismo eligiendo el banco) |
 | Conexión directa al banco (agregador: Belvo, Prometeo, Plaid) | **De pago** | El webhook `/api/bank/webhook` ya está listo; falta contratar y poner `BANK_WEBHOOK_SECRET` |
 
-El saldo de una cuenta nueva es opcional: si no lo escribes empieza en cero y se corrige solo cuando un aviso del banco trae
-el «saldo disponible».
+Ya no se escriben cuentas, saldos ni movimientos a mano: todo viene de avisos o extractos reales. Una cuenta nueva empieza en cero
+y se corrige sola cuando un aviso del banco trae el «saldo disponible». El botón **Conectar** muestra «conexión directa en
+mantenimiento» y ofrece el permiso de notificaciones.
 
 ## 1. Variables de entorno (IntelliJ → Run → Edit Configurations → Environment variables)
 
@@ -92,13 +92,18 @@ Para que cualquiera la encuentre en tiendas:
   archivo `assetlinks.json`; ponlo en `src/main/resources/static/.well-known/assetlinks.json`. Play exige cuenta de desarrollador (pago único).
 - **App Store**: requiere un envoltorio (por ejemplo Capacitor), Mac y cuenta Apple Developer (pago anual). No incluido.
 
-## 8. App Android de notificaciones (opcional pero recomendada)
+## 8. App Android de notificaciones
 
-1. Abre `android/` en Android Studio (JDK 17) → *Build → Build APK*. Instálala en el celular.
-2. En Nexorix: **Panel → Notificaciones del celular → Activar**; copia la dirección y la llave (se muestra una sola vez).
-3. En la app: pega ambas → **Guardar** → **Dar acceso a las notificaciones** → activa Nexorix.
-4. Ajustes → Apps → Nexorix Notificaciones → Batería: **Sin restricciones** (si no, Android la cierra).
-5. Solo se envían avisos que mencionan un banco conocido y traen un monto. iPhone no permite leer notificaciones de otras apps.
+1. Abre `android/` en Android Studio (JDK 17) → *Build → Build APK*. Para que cualquiera la descargue, copia el APK a
+   `src/main/resources/static/nexorix-notificaciones.apk`: el botón «Descargar la app de Nexorix para Android» aparece solo si ese archivo existe.
+   (Para Google Play necesitas una cuenta de desarrollador, pago único.)
+2. En Nexorix, desde el **celular Android**: **Panel → Conectar → Permitir recibir notificaciones**. Nexorix abre la app, que
+   guarda la dirección y la llave sola y te lleva a *Acceso a notificaciones*: activa «Nexorix Notificaciones». Si no se abre,
+   usa «Conéctala a mano» (misma pantalla) y pega la dirección y la llave en la app.
+3. Ajustes → Apps → Nexorix Notificaciones → Batería: **Sin restricciones** (si no, Android la cierra).
+4. Android da el permiso para **todas** las apps, pero la app solo envía avisos que mencionan un banco conocido y traen un monto.
+   Junto con el aviso envía el **nombre de la app** («Nequi», «Bancolombia»…), y con él el servidor sabe de qué banco es.
+5. iPhone no permite leer notificaciones de otras apps.
 
 ## 9. Lista antes de publicar
 

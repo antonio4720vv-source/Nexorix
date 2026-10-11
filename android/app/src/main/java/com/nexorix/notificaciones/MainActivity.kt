@@ -71,6 +71,33 @@ class MainActivity : Activity() {
             text = "Solo se envían avisos que mencionan un banco y traen un monto. Lo demás nunca sale del celular."
         })
         setContentView(layout)
+        handleLink(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleLink(intent)
+    }
+
+    /**
+     * nexorix://conectar?url=https://...&token=nxr_... : guarda los datos y lleva a la persona
+     * directo a dar el acceso a las notificaciones. Asi no tiene que copiar nada a mano.
+     */
+    private fun handleLink(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme != "nexorix" || data.host != "conectar") return
+        val address = data.getQueryParameter("url")?.trim().orEmpty()
+        val key = data.getQueryParameter("token")?.trim().orEmpty()
+        if (!address.startsWith("https://") || !key.startsWith("nxr_")) {
+            Toast.makeText(this, "El enlace de Nexorix no es válido.", Toast.LENGTH_LONG).show()
+            return
+        }
+        getSharedPreferences(Config.PREFS, MODE_PRIVATE).edit()
+            .putString(Config.URL, address)
+            .putString(Config.TOKEN, key)
+            .apply()
+        Toast.makeText(this, "Conectado a Nexorix. Activa el acceso a las notificaciones.", Toast.LENGTH_LONG).show()
+        startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
     }
 
     override fun onResume() {

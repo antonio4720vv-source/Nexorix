@@ -79,7 +79,7 @@ public class NotificationController {
         return ResponseEntity.noContent().build();
     }
 
-    public record IngestRequest(String packageName, String title, String text, Long postedAt) {
+    public record IngestRequest(String packageName, String appName, String title, String text, Long postedAt) {
     }
 
     @PostMapping("/notifications/ingest")
@@ -90,7 +90,7 @@ public class NotificationController {
                 ? authorization.substring(7).trim() : null;
         try {
             NotificationService.Outcome outcome = service.ingest(
-                    token, body.packageName(), body.title(), body.text(), body.postedAt());
+                    token, body.packageName(), body.appName(), body.title(), body.text(), body.postedAt());
             return ResponseEntity.ok(Map.of("result", outcome.name()));
         } catch (SecurityException exception) {
             return ResponseEntity.status(401).body(Map.of("error", exception.getMessage()));

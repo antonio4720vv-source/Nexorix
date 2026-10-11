@@ -2,7 +2,6 @@ package com.nexorix.banking;
 
 import com.nexorix.account.Account;
 import com.nexorix.account.AccountRepository;
-import com.nexorix.account.AccountService;
 import com.nexorix.user.User;
 import com.nexorix.whatsapp.WhatsappLinkRepository;
 import com.nexorix.user.UserRepository;
@@ -36,11 +35,9 @@ public class BankLinkService {
     private final AccountRepository accounts;
     private final UserRepository users;
     private final WhatsappLinkRepository whatsapp;
-    private final AccountService accountService;
 
     public BankLinkService(BankLinkRepository links, BankEventRepository events, AccountRepository accounts,
-                           UserRepository users, WhatsappLinkRepository whatsapp, AccountService accountService) {
-        this.accountService = accountService;
+                           UserRepository users, WhatsappLinkRepository whatsapp) {
         this.links = links;
         this.events = events;
         this.accounts = accounts;
@@ -58,43 +55,6 @@ public class BankLinkService {
     private static LinkView view(BankLink l) {
         return new LinkView(l.getId(), l.getAccount().getId(), l.getAccount().getName(), l.getBank(),
                 l.getExternalRef(), l.getAccount().getType(), l.getAccount().getBalance().toPlainString());
-    }
-
-    /**
-     * Agrega un banco o billetera real: crea la cuenta en Nexorix y la deja lista para recibir los
-     * movimientos (avisos del celular o agregador). El saldo es opcional: sin el, empieza en cero y se
-     * corrige solo cuando un aviso del banco lo informa.
-     */
-    @Transactional
-    public LinkView connect(String username, String bank, String type, String name, java.math.BigDecimal balance,
-                            String cardNumber, String cardExpiry) {
-        user(username);
-        String cleanBank = com.nexorix.bank.BankCatalog.byName(bank)
-                .orElseThrow(() -> new IllegalArgumentException("Elige un banco o billetera de la lista."))
-                .name();
-        String cleanType = type == null || type.isBlank() ? "AHORROS" : type.trim().toUpperCase(Locale.ROOT);
-        String baseName = name == null || name.isBlank() ? cleanBank : name.trim();
-
-        String accountName = baseName;
-        java.util.Set<String> taken = accountService.getAccountsByUsername(username).stream()
-                .filter(a -> a.getBank().equalsIgnoreCase(cleanBank))
-                .map(a -> a.getName().toLowerCase(Locale.ROOT)).collect(java.util.stream.Collectors.toSet());
-        for (int i = 2; taken.contains(accountName.toLowerCase(Locale.ROOT)); i++) {
-            accountName = baseName + " " + i;
-        }
-
-        String upperBank = cleanBank.toUpperCase(Locale.ROOT);
-        String ref = newRef(upperBank);
-        if (balance == null) {
-            balance = java.math.BigDecimal.ZERO;
-        }
-        // En una tarjeta de credito el "saldo" es el cupo disponible (el cupo total se asume igual).
-        boolean card = cardNumber != null && !cardNumber.isBlank();
-        Account account = card
-                ? accountService.createAccount(accountName, cleanType, cleanBank, balance, username,
-                        cleanType.equals("CREDITO") ? balance : null, cardNumber, cardExpiry)
-                : accountService.createAccount(accountName, cleanType, cleanBank, balance, username);
-        return view(links.save(new BankLink(user(username), account, upperBank, ref)));
     }
 
     /** La referencia de la cuenta: la da el agregador al conectar el banco; si no hay agregador, se genera. */

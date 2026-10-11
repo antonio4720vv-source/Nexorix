@@ -71,18 +71,9 @@
     </section>
 
     <section class="panel stack">
-        <div class="panel-head"><h2>Cuentas vinculadas</h2><a class="button small" href="/dashboard.html">Agregar un banco</a></div>
-        <p class="muted" style="margin:0">Para agregar un banco, billetera o tarjeta nuevo usa «Agregar» en el panel; los movimientos llegan solos desde las notificaciones de tu celular.</p>
+        <div class="panel-head"><h2>Cuentas conectadas</h2><a class="button small" href="/dashboard.html">Conectar un banco</a></div>
+        <p class="muted" style="margin:0">Tus cuentas se crean solas cuando llega la primera notificación de ese banco. Para dar el permiso usa «Conectar» en el panel.</p>
         <div id="links"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
-            <div class="field"><label for="accountSelect">Cuenta de Nexorix</label><select id="accountSelect"></select></div>
-            <div class="field"><label for="bankRef">Referencia de la cuenta en el banco (solo cuentas reales)</label>
-                <input id="bankRef" maxlength="100" placeholder="Solo si tu agregador te la dio" autocomplete="off"></div>
-            <div class="field"><label for="bankPhone">Celular registrado en el banco (se verifica que sea el tuyo)</label>
-                <input id="bankPhone" type="tel" maxlength="20" placeholder="+57 300 123 4567" autocomplete="off"></div>
-            <button class="button secondary" id="linkAccount" type="button">Vincular al banco</button>
-        </div>
-        <p id="linkMsg"></p>
     </section>
 
     <section class="panel stack">
@@ -152,13 +143,10 @@
     }
 
     async function loadLinks() {
-        const [links, accounts] = await Promise.all([api("/api/bank/links"), api("/api/accounts")]);
-        const linked = new Set((links.data || []).map((l) => l.accountId));
+        const links = await api("/api/bank/links");
         $("links").innerHTML = (links.data || []).length ? "<ul>" + links.data.map((l) =>
-            `<li><strong>${esc(l.accountName)}</strong> ↔ ${esc(l.bank)} <code>${esc(l.externalRef)}</code></li>`).join("") + "</ul>"
-            : "<p>Aún no hay cuentas vinculadas.</p>";
-        $("accountSelect").innerHTML = (accounts.data || []).filter((a) => !linked.has(a.id))
-            .map((a) => `<option value="${a.id}">${esc(a.name)} (${esc(a.bank)})</option>`).join("");
+            `<li><strong>${esc(l.accountName)}</strong> · ${esc(l.bank)}</li>`).join("") + "</ul>"
+            : "<p>Aún no hay cuentas conectadas. Se crean solas con la primera notificación de tu banco.</p>";
     }
 
     async function loadEvents() {
@@ -203,14 +191,6 @@
             json: { whatsappNotificationsEnabled: $("waEnabled").checked, securityPhone: $("securityPhone").value } });
         $("prefsMsg").textContent = r.ok ? "Guardado ✔" : Nexorix.errorOf(r, "No se pudo guardar.");
         if (r.ok) loadPrefs();
-    });
-
-    $("linkAccount").addEventListener("click", async () => {
-        const accountId = Number($("accountSelect").value);
-        if (!accountId) { $("linkMsg").textContent = "No hay cuentas por vincular."; return; }
-        const r = await post("/api/bank/links", { accountId, externalRef: $("bankRef").value.trim() || null, phone: $("bankPhone").value.trim() || null });
-        $("linkMsg").textContent = r.ok ? "Vinculada ✔" : Nexorix.errorOf(r, "No se pudo vincular.");
-        loadLinks();
     });
 
     // ---------- Notificaciones del dispositivo ----------

@@ -8,7 +8,7 @@ class NotificationParserTest {
 
     @Test
     void entiendeUnIngresoDeNequi() {
-        ParsedNotification n = NotificationParser.parse("com.nequi.MobileApp", "Nequi",
+        ParsedNotification n = NotificationParser.parse("com.nequi.MobileApp", "", "Nequi",
                 "Recibiste $50.000 de Juan Perez").orElseThrow();
 
         assertThat(n.bank().name()).isEqualTo("Nequi");
@@ -20,7 +20,7 @@ class NotificationParserTest {
 
     @Test
     void entiendeUnaCompraYElSaldo() {
-        ParsedNotification n = NotificationParser.parse("com.app", "Bancolombia",
+        ParsedNotification n = NotificationParser.parse("com.app", "", "Bancolombia",
                 "Bancolombia le informa Compra por $25.500,00 en EXITO CHAPINERO con tarjeta *1234. Saldo disponible: $1.200.000")
                 .orElseThrow();
 
@@ -34,7 +34,7 @@ class NotificationParserTest {
 
     @Test
     void entiendeUnEnvio() {
-        ParsedNotification n = NotificationParser.parse("", "Daviplata", "Enviaste $1.000.000 a Maria Gomez")
+        ParsedNotification n = NotificationParser.parse("", "", "Daviplata", "Enviaste $1.000.000 a Maria Gomez")
                 .orElseThrow();
 
         assertThat(n.bank().name()).isEqualTo("Daviplata");
@@ -45,15 +45,27 @@ class NotificationParserTest {
     }
 
     @Test
+    void elNombreDeLaAppIdentificaElBancoAunqueElTextoNoLoDiga() {
+        ParsedNotification n = NotificationParser.parse("com.x.y", "Bancolombia", "Aviso",
+                "Compra por $25.000 en EXITO").orElseThrow();
+        assertThat(n.bank().name()).isEqualTo("Bancolombia");
+
+        ParsedNotification nequi = NotificationParser.parse("com.nequi.MobileApp", "Nequi", "Tienes plata",
+                "Recibiste $10.000 de Ana").orElseThrow();
+        assertThat(nequi.bank().name()).isEqualTo("Nequi");
+        assertThat(NotificationParser.parse("com.whatsapp", "WhatsApp", "Ana", "Recibiste $10.000 de mi parte")).isEmpty();
+    }
+
+    @Test
     void ignoraPromocionesClavesYRechazos() {
-        assertThat(NotificationParser.parse("", "Nequi", "Gana $100.000 con tu primera compra")).isEmpty();
-        assertThat(NotificationParser.parse("", "Bancolombia", "Tu código es 123456")).isEmpty();
-        assertThat(NotificationParser.parse("", "Davivienda", "Compra por $20.000 rechazada")).isEmpty();
+        assertThat(NotificationParser.parse("", "", "Nequi", "Gana $100.000 con tu primera compra")).isEmpty();
+        assertThat(NotificationParser.parse("", "", "Bancolombia", "Tu código es 123456")).isEmpty();
+        assertThat(NotificationParser.parse("", "", "Davivienda", "Compra por $20.000 rechazada")).isEmpty();
     }
 
     @Test
     void ignoraLoQueNoEsDeUnBancoOnoTieneMonto() {
-        assertThat(NotificationParser.parse("com.whatsapp", "Ana", "Recibiste $50.000 de mi parte")).isEmpty();
-        assertThat(NotificationParser.parse("", "Nequi", "Recibiste un regalo")).isEmpty();
+        assertThat(NotificationParser.parse("com.whatsapp", "", "Ana", "Recibiste $50.000 de mi parte")).isEmpty();
+        assertThat(NotificationParser.parse("", "", "Nequi", "Recibiste un regalo")).isEmpty();
     }
 }

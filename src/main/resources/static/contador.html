@@ -68,6 +68,15 @@
             <label for="account">¿De qué cuenta son los extractos?</label>
             <select id="account" required></select>
         </div>
+        <details id="newAccount" style="margin:-4px 0 14px">
+            <summary class="muted" style="cursor:pointer">¿El extracto es de un banco que no aparece aquí?</summary>
+            <div class="field" style="margin-top:10px">
+                <label for="newBank">Banco o billetera</label>
+                <select id="newBank"><option value="">Elige el banco</option></select>
+            </div>
+            <button class="button secondary" type="button" id="newAccountButton">Crear la cuenta</button>
+            <p class="muted" style="font-size:.82rem">La cuenta empieza en cero; el saldo se corrige solo cuando tu banco lo informa por notificación.</p>
+        </details>
 
         <label class="dropzone" id="dropzone" for="file">
             <span class="dot moved" data-icon="upload" style="width:46px;height:46px"></span>
@@ -266,23 +275,29 @@
     // Inicio
     // ------------------------------------------------------------
 
+    /** Cuentas del selector y bancos para crear una nueva. */
+    async function loadAccounts() {
+        const accounts = await api("/api/accounts");
+        const list = accounts.ok && accounts.data ? accounts.data : [];
+        const banks = await api("/api/banks");
+        if (banks.ok && $("newBank").options.length === 1) {
+            $("newBank").innerHTML += banks.data.map(b =>
+                `<option value="${esc(b.name)}" data-wallet="${b.wallet}">${esc(b.name)}</option>`).join("");
+        }
+        $("account").innerHTML = list.length
+            ? list.map(a => `<option value="${a.id}">${esc(a.name)} (${esc(a.bank)})</option>`).join("")
+            : '<option value="">Primero crea la cuenta (abajo)</option>';
+        $("newAccount").open = list.length === 0;
+    }
+
     async function init() {
         $("navSlot").outerHTML = Nexorix.nav("contador");
         document.querySelectorAll("[data-icon]").forEach(el => el.innerHTML = Nexorix.icon(el.dataset.icon));
         loadAudit();
 
-        const [accounts, ai] = await Promise.all([api("/api/accounts"), api("/api/ai/status")]);
+        const ai = await api("/api/ai/status");
         $("aiNote").hidden = !(ai.ok && ai.data && ai.data.enabled);
-
-        const list = accounts.ok && accounts.data ? accounts.data : [];
-        if (list.length === 0) {
-            $("uploadForm").innerHTML = `<h2>Primero agrega una cuenta</h2>
-                <p class="muted">Para importar extractos necesitas la cuenta a la que pertenecen.</p>
-                <a class="button" href="/dashboard.html">Ir al panel</a>`;
-            return;
-        }
-        $("account").innerHTML = list.map(a =>
-            `<option value="${a.id}">${esc(a.name)} (${esc(a.bank)})</option>`).join("");
+        await loadAccounts();
 
         // Archivos de esta sesion que siguen en proceso (por si recargaste la pagina).
         try {
@@ -293,6 +308,26 @@
             }
         } catch (e) { /* sin almacenamiento */ }
     }
+
+    $("newAccountButton").addEventListener("click", async () => {
+        const chosenBank = $("newBank").selectedOptions[0];
+        if (!chosenBank || !chosenBank.value) {
+            Nexorix.toast("Elige el banco.", "error");
+            return;
+        }
+        const params = new URLSearchParams({
+            name: chosenBank.value, bank: chosenBank.value,
+            type: chosenBank.dataset.wallet === "true" ? "BILLETERA" : "AHORROS"
+        });
+        const result = await api("/api/accounts?" + params, { method: "POST" });
+        if (!result.ok) {
+            Nexorix.toast(Nexorix.errorOf(result, "No fue posible crear la cuenta."), "error");
+            return;
+        }
+        Nexorix.toast("Cuenta creada.");
+        await loadAccounts();
+        $("account").value = String(result.data.id);
+    });
 
     function remember() {
         try {

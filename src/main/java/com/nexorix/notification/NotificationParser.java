@@ -33,7 +33,11 @@ public final class NotificationParser {
     private NotificationParser() {
     }
 
-    public static Optional<ParsedNotification> parse(String packageName, String title, String text) {
+    /**
+     * @param appName el nombre de la app en el celular ("Nequi", "Bancolombia"): es lo primero que se mira
+     *                para saber el banco; si no alcanza, se busca en el paquete, el titulo y el texto.
+     */
+    public static Optional<ParsedNotification> parse(String packageName, String appName, String title, String text) {
         String safeTitle = title == null ? "" : title;
         String safeText = text == null ? "" : text;
         String all = safeTitle + " " + safeText;
@@ -45,8 +49,9 @@ public final class NotificationParser {
             }
         }
 
-        Optional<Bank> bank = BankCatalog.detect(packageName == null ? "" : packageName.replace('.', ' '),
-                safeTitle, safeText);
+        Optional<Bank> bank = BankCatalog.detect(appName == null ? "" : appName)
+                .or(() -> BankCatalog.detect(packageName == null ? "" : packageName.replace('.', ' '),
+                        safeTitle, safeText));
         String type = direction(plain);
         if (bank.isEmpty() || type == null) {
             return Optional.empty();

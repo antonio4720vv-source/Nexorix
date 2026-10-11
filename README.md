@@ -17,7 +17,7 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | IA (Gemini) | Lee PDF difíciles o escaneados, mejora la clasificación y el agente **Nexo** responde preguntas con herramientas |
 | Reportes | PDF para el contador y CSV para Excel, con la parte real y la parte interna de cada movimiento |
 | Bancos reales | Las cuentas solo se crean con bancos y billeteras reales de Colombia (`GET /api/banks`); ya no hay datos de ejemplo |
-| Notificaciones del celular | Quien no quiere agregar sus cuentas activa «Notificaciones del celular»: la app de `android/` envía a `POST /api/notifications/ingest` (con una llave personal, guardada solo como huella SHA-256) los avisos de bancos; Nexorix crea la cuenta del banco y registra el movimiento, sin duplicados. iPhone no lo permite |
+| Notificaciones del celular | El botón **Conectar** del panel avisa que la conexión directa con el banco está en mantenimiento y pide el permiso de notificaciones: la app de `android/` lee los avisos de tus apps de banco, el servidor identifica el banco por el nombre de la app (Nequi, Bancolombia…) y registra el movimiento en `POST /api/notifications/ingest` (llave personal guardada solo como huella SHA-256). Crea la cuenta del banco sola, sin duplicados. iPhone no lo permite |
 | Compras por WhatsApp | Al registrar un gasto, Nexorix pregunta por WhatsApp **qué compraste**; respondes con una nota de voz y Gemini llena tu tabla personalizada |
 | Cobros automáticos | Si te llega por el banco un dinero con el monto exacto de lo que te debe un amigo (y el nombre o documento coincide, o es el único cobro con ese monto), el cobro de Dividir gastos se salda solo y te avisa |
 | Bancos en vivo | Los movimientos llegan por avisos del celular (app de `android/`) o por webhooks firmados de un agregador (Plaid / Prometeo / Belvo): clasifica gasto / transferencia propia / a tercero, con antifraude |
@@ -46,7 +46,8 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | `GET/POST /api/whatsapp/webhook` | Webhook de Meta (público, firmado con `X-Hub-Signature-256`) |
 | `POST /api/bank/webhook` | Webhook del agregador bancario (público, firmado con `X-Bank-Signature`) |
 | `GET/POST /api/bank/links` · `GET /api/bank/events` · `POST /api/bank/events/{id}/release` | Cuentas vinculadas, movimientos del banco y «fui yo» para liberar un bloqueo |
-| `POST /api/bank/connect` | Vincula un banco, billetera o tarjeta: crea la cuenta y trae el saldo solo |
+| `GET /api/banks` | Catálogo de bancos y billeteras de Colombia (las cuentas solo se crean con estos nombres) |
+| `GET/POST/DELETE /api/notifications/connection` · `POST /api/notifications/ingest` | Llave del celular y recepción de avisos de banco |
 | `GET /api/push/key` · `POST /api/push/subscribe\|unsubscribe\|test` | Notificaciones del dispositivo |
 | `POST /api/reports/pin` | Desbloquea la descarga de extractos 3 minutos |
 | `GET /api/compras/categorias` · `PUT /api/compras/{id}/categoria` | Categorías de compras |
@@ -104,7 +105,7 @@ Cada archivo que se sube deja una cadena de eventos en `import_audit_log`, con e
 ## Compras por WhatsApp
 
 1. La persona escribe su número en `/compras.html` y manda desde su WhatsApp el código `NEXORIX 123456` que ve en pantalla. Nexorix **solo escribe a números verificados**, así nadie puede poner el número de otro.
-2. Cada gasto (egreso) registrado a mano dispara la pregunta *"Registraste un gasto de $ 25.000 (Éxito). ¿Qué compraste?"*. Las transferencias entre cuentas propias y los extractos importados no preguntan nada. Máximo 20 preguntas al día por persona.
+2. Cada gasto (egreso) que llega del banco dispara la pregunta *"Registraste un gasto de $ 25.000 (Éxito). ¿Qué compraste?"*. Las transferencias entre cuentas propias y los extractos importados no preguntan nada. Máximo 20 preguntas al día por persona.
 3. La persona responde con una **nota de voz** (o con texto). Gemini la escucha, la transcribe y llena las columnas que ella eligió (por defecto: producto, cantidad, tienda, para quién, motivo; se pueden renombrar, borrar o agregar hasta 15). Nexorix le confirma por WhatsApp lo que guardó.
 4. Si responde citando la pregunta, la respuesta va a esa compra; si no, a la pregunta más reciente sin responder (de los últimos 7 días).
 
@@ -129,7 +130,7 @@ Banco/agregador ──webhook firmado──▶ BankWebhookController ──▶ B
 
 **Clasificación** (`banking/BankMovementClassifier`): tarjeta o datáfono (`CARD_PURCHASE`, `POS`, `ONLINE`) = **gasto**; `TRANSFER` hacia otra cuenta vinculada del mismo usuario o con su mismo documento = **transferencia interna** (nunca dispara el flujo de gasto); `TRANSFER` hacia otra persona = **transferencia a terceros**; dinero que entra = ingreso.
 
-**Opt-in de WhatsApp**: `users.whatsapp_notifications_enabled` (por defecto `false`, se cambia en `/seguridad.html` o `PUT /api/security/preferences`). Con `false`, los gastos que llegan del banco no generan ningún WhatsApp. Con `true`, un gasto o una transferencia a terceros dispara de forma asíncrona (después del commit, otro hilo) *«¿En qué gastaste $ 48.900 en Éxito?»*; la respuesta (nota de voz o texto) llena tu tabla de compras y completa la descripción del movimiento (`Éxito - arroz y leche`). Las alertas críticas **ignoran** este flag. El flag controla el flujo de bancos; los gastos escritos a mano siguen preguntando si tienes un WhatsApp verificado.
+**Opt-in de WhatsApp**: `users.whatsapp_notifications_enabled` (por defecto `false`, se cambia en `/seguridad.html` o `PUT /api/security/preferences`). Con `false`, los gastos que llegan del banco no generan ningún WhatsApp. Con `true`, un gasto o una transferencia a terceros dispara de forma asíncrona (después del commit, otro hilo) *«¿En qué gastaste $ 48.900 en Éxito?»*; la respuesta (nota de voz o texto) llena tu tabla de compras y completa la descripción del movimiento (`Éxito - arroz y leche`). Las alertas críticas **ignoran** este flag. El flag solo controla las transferencias a terceros; las compras con tarjeta siempre preguntan si tienes un WhatsApp verificado.
 
 **Perfil de comportamiento** (`user_behavior_log`, solo se agrega): cada compra o transferencia a tercero aceptada guarda comercio, categoría, destinatario, monto y lugar (coordenadas, o ciudad/país → `GeoLocator`). De ahí salen los comercios y categorías habituales, los destinatarios frecuentes y los lugares comunes (`GET /api/security/profile`). Los movimientos bloqueados no se aprenden hasta que la persona confirma «fui yo».
 

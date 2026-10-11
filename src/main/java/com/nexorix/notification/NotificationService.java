@@ -100,7 +100,8 @@ public class NotificationService {
      * y IllegalStateException si se envían demasiados avisos seguidos.
      */
     @Transactional
-    public Outcome ingest(String token, String packageName, String title, String text, Long postedAtMillis) {
+    public Outcome ingest(String token, String packageName, String appName, String title, String text,
+                          Long postedAtMillis) {
         if (token == null || !token.startsWith(TOKEN_PREFIX)) {
             throw new SecurityException("Llave no válida.");
         }
@@ -116,7 +117,7 @@ public class NotificationService {
         String cleanTitle = cut(title);
         String cleanPackage = packageName == null ? "" : packageName.trim();
 
-        Optional<ParsedNotification> parsed = NotificationParser.parse(cleanPackage, cleanTitle, cleanText);
+        Optional<ParsedNotification> parsed = NotificationParser.parse(cleanPackage, cut(appName), cleanTitle, cleanText);
         if (parsed.isEmpty()) {
             saved.markUsed(false);
             return Outcome.IGNORED;

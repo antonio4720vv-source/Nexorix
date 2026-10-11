@@ -79,9 +79,9 @@ class NotificationServiceTest {
 
     @Test
     void rechazaUnaLlaveQueNoExiste() {
-        assertThatThrownBy(() -> service.ingest("nxr_falsa", "", "Nequi", "Recibiste $5.000 de Ana", null))
+        assertThatThrownBy(() -> service.ingest("nxr_falsa", "", "", "Nequi", "Recibiste $5.000 de Ana", null))
                 .isInstanceOf(SecurityException.class);
-        assertThatThrownBy(() -> service.ingest(null, "", "Nequi", "Recibiste $5.000 de Ana", null))
+        assertThatThrownBy(() -> service.ingest(null, "", "", "Nequi", "Recibiste $5.000 de Ana", null))
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -91,7 +91,7 @@ class NotificationServiceTest {
         Account created = new Account("Nequi", "BILLETERA", "Nequi", BigDecimal.ZERO, ana);
         when(accountService.createAccount("Nequi", "BILLETERA", "Nequi", BigDecimal.ZERO, "ana")).thenReturn(created);
 
-        var outcome = service.ingest(token, "com.nequi.MobileApp", "Nequi", "Recibiste $50.000 de Juan Perez", null);
+        var outcome = service.ingest(token, "com.nequi.MobileApp", "", "Nequi", "Recibiste $50.000 de Juan Perez", null);
 
         assertThat(outcome).isEqualTo(NotificationService.Outcome.REGISTERED);
         ArgumentCaptor<BankWebhookPayload> sent = ArgumentCaptor.forClass(BankWebhookPayload.class);
@@ -112,7 +112,7 @@ class NotificationServiceTest {
         Account mine = new Account("Mi Nequi", "BILLETERA", "Nequi", new BigDecimal("1000"), ana);
         when(accounts.findByUserUsername("ana")).thenReturn(List.of(mine));
 
-        service.ingest(token, "", "Nequi", "Pagaste $15.000 en Tienda Don Pepe", null);
+        service.ingest(token, "", "", "Nequi", "Pagaste $15.000 en Tienda Don Pepe", null);
 
         ArgumentCaptor<BankWebhookPayload> sent = ArgumentCaptor.forClass(BankWebhookPayload.class);
         verify(sync).process(sent.capture());
@@ -127,7 +127,7 @@ class NotificationServiceTest {
         String token = newToken();
         when(sync.process(any())).thenReturn(new BankSyncService.Result("DUPLICATE", null, null, "NONE", null));
 
-        var outcome = service.ingest(token, "", "Nequi", "Recibiste $50.000 de Juan Perez", 1760000000000L);
+        var outcome = service.ingest(token, "", "", "Nequi", "Recibiste $50.000 de Juan Perez", 1760000000000L);
 
         assertThat(outcome).isEqualTo(NotificationService.Outcome.DUPLICATE);
         assertThat(stored.getReceived()).isZero();
@@ -139,7 +139,7 @@ class NotificationServiceTest {
         Account mine = new Account("Mi Nequi", "BILLETERA", "Nequi", new BigDecimal("1000"), ana);
         when(accounts.findByUserUsername("ana")).thenReturn(List.of(mine));
 
-        service.ingest(token, "", "Nequi", "Recibiste $50.000 de Ana. Saldo disponible: $250.000", null);
+        service.ingest(token, "", "", "Nequi", "Recibiste $50.000 de Ana. Saldo disponible: $250.000", null);
 
         assertThat(mine.getBalance()).isEqualByComparingTo("250000");
     }
@@ -148,7 +148,7 @@ class NotificationServiceTest {
     void ignoraLoQueNoEsUnMovimiento() {
         String token = newToken();
 
-        var outcome = service.ingest(token, "com.whatsapp", "Ana", "hola, como vas", null);
+        var outcome = service.ingest(token, "com.whatsapp", "", "Ana", "hola, como vas", null);
 
         assertThat(outcome).isEqualTo(NotificationService.Outcome.IGNORED);
         verify(sync, never()).process(any());

@@ -26,7 +26,7 @@ public class AccountController {
             @RequestParam String name,
             @RequestParam String type,
             @RequestParam String bank,
-            @RequestParam BigDecimal balance,
+            @RequestParam(required = false, defaultValue = "0") BigDecimal balance,
             @RequestParam(required = false) BigDecimal creditLimit,
             @RequestParam(required = false) String cardLast4,
             @RequestParam(required = false) String cardNumber,

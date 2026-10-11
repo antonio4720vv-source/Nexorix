@@ -23,7 +23,14 @@ class BankNotificationService : NotificationListenerService() {
         val text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
             ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty()
 
-        if (!looksLikeBank(sbn.packageName, title, text)) return
+        // El nombre que ve la persona en su celular ("Nequi", "Bancolombia"): la forma mas segura de saber el banco.
+        val appName = try {
+            packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString()
+        } catch (_: Exception) {
+            ""
+        }
+
+        if (!looksLikeBank(sbn.packageName, appName, title, text)) return
 
         val prefs = getSharedPreferences(Config.PREFS, MODE_PRIVATE)
         val url = prefs.getString(Config.URL, null)?.takeIf { it.isNotBlank() } ?: return
@@ -31,6 +38,7 @@ class BankNotificationService : NotificationListenerService() {
 
         val body = JSONObject()
             .put("packageName", sbn.packageName)
+            .put("appName", appName)
             .put("title", title)
             .put("text", text)
             .put("postedAt", sbn.postTime)
@@ -39,9 +47,9 @@ class BankNotificationService : NotificationListenerService() {
         thread(name = "nexorix-send") { send(url, token, body) }
     }
 
-    private fun looksLikeBank(pkg: String, title: String, text: String): Boolean {
+    private fun looksLikeBank(pkg: String, appName: String, title: String, text: String): Boolean {
         if (!text.contains('$') && !title.contains('$')) return false
-        val haystack = " ${pkg.replace('.', ' ')} $title $text ".lowercase()
+        val haystack = " ${pkg.replace('.', ' ')} $appName $title $text ".lowercase()
             .replace(Regex("[^\\p{L}0-9]+"), " ")
         return BANKS.any { haystack.contains(" $it ") }
     }

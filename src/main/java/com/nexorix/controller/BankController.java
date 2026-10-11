@@ -26,17 +26,6 @@ public class BankController {
     public record LinkRequest(Long accountId, String bank, String externalRef, String phone) {
     }
 
-    public record ConnectRequest(String bank, String type, String name, java.math.BigDecimal balance,
-                                 String cardNumber, String cardExpiry) {
-    }
-
-    /** Agregar un banco o billetera real: se crea la cuenta (saldo opcional) y queda lista para recibir movimientos. */
-    @PostMapping("/connect")
-    public BankLinkService.LinkView connect(@RequestBody ConnectRequest request) {
-        return linkService.connect(username(), request.bank(), request.type(), request.name(),
-                request.balance(), request.cardNumber(), request.cardExpiry());
-    }
-
     @GetMapping("/links")
     public List<BankLinkService.LinkView> links() {
         return linkService.list(username());
