@@ -225,3 +225,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+// Instalable en el celular (Chrome: "Agregar a la pantalla de inicio").
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => { /* sin soporte: la app sigue funcionando */ });
+    });
+}
