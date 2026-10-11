@@ -76,46 +76,38 @@ const Nexorix = {
 
     /* ---------- Idioma ---------- */
 
-    /** Textos de la interfaz comun (navegacion, barra Demo, ajustes). Lo demas de cada pagina sigue en espanol. */
+    /** Textos de la interfaz comun (navegacion, ajustes). Lo demas de cada pagina sigue en espanol. */
     i18n: {
         es: {
             "nav.panel": "Panel", "nav.contador": "Contador", "nav.compras": "Compras",
             "nav.dividir": "Compras y gastos", "nav.seguridad": "Seguridad", "nav.ajustes": "Ajustes",
-            "demo.label": "Demo", "demo.on": "Demo activo", "demo.title": "Modo Demo: datos de ejemplo para probar cada función.",
-            "demo.load": "Cargar datos de ejemplo", "demo.exit": "Salir del demo", "demo.simulate": "Simular:",
-            "demo.COMPRA": "Compra", "demo.COMPRA_INUSUAL": "Compra inusual", "demo.TRANSFER_PROPIA": "Transferencia propia",
-            "demo.TRANSFER_TERCERO": "Transferencia a tercero", "demo.VIAJE_IMPOSIBLE": "Viaje imposible", "demo.PAGO_DIVISION": "Un amigo te paga su parte", "demo.TARJETA_AJENA": "Tarjeta no registrada",
-            "demo.tools": "Herramientas de demo", "demo.toolsOpen": "Dinero y movimientos…", "demo.account": "Cuenta", "demo.amount": "Monto a agregar", "demo.password": "Clave de demo", "demo.addMoney": "Agregar dinero", "demo.resetMoney": "Reiniciar dinero", "demo.resetTx": "Reiniciar movimientos de la cuenta",
-            "demo.bank": "Banco", "demo.split": "Dividir gastos", "demo.statements": "Extractos y reportes",
-            "demo.splitRun": "Dividir una cena", "demo.importRun": "Subir extracto de ejemplo", "demo.goReports": "Ver reportes",
-            "demo.goTrace": "Ver Trace", "demo.goPurchases": "Mis compras", "demo.expense": "Registrar un gasto",
+            "install.ready": "Instala Nexorix como una app en este dispositivo: se abre en su propia ventana y desde el icono.",
+            "install.ios": "En iPhone o iPad: toca el botón Compartir y elige «Añadir a pantalla de inicio».",
+            "install.installed": "Nexorix ya está instalada en este dispositivo.",
+            "install.manual": "Desde el menú de tu navegador elige «Instalar app» o «Añadir a la pantalla de inicio».",
+            "install.button": "Instalar Nexorix", "settings.install": "Instalar la app",
             "profile.title": "Mi cuenta", "profile.name": "Nombre", "profile.username": "Usuario", "profile.account": "N.º de cuenta",
             "profile.personal": "Información personal", "profile.cedula": "Cédula", "profile.phone": "Teléfono", "profile.email": "Correo",
             "profile.kyc": "Identidad", "profile.note": "Por tu seguridad, los datos personales se muestran censurados.",
             "profile.close": "Cerrar", "profile.changePhoto": "Cambiar foto", "profile.removePhoto": "Quitar foto", "profile.photoSaved": "Foto actualizada.", "profile.none": "Sin registrar",
             "settings.title": "Ajustes", "settings.language": "Idioma", "settings.languageHelp":
                 "Cambia los menús, los botones generales y esta página. El resto del contenido sigue en español por ahora.",
-            "settings.demo": "Modo Demo", "settings.demoHelp": "Muestra la barra Demo para probar cada función con datos de ejemplo.",
             "settings.saved": "Idioma guardado.", "settings.es": "Español", "settings.en": "English"
         },
         en: {
             "nav.panel": "Dashboard", "nav.contador": "Accounting & reports", "nav.compras": "Purchases",
             "nav.dividir": "Purchases & splits", "nav.seguridad": "Security", "nav.ajustes": "Settings",
-            "demo.label": "Demo", "demo.on": "Demo on", "demo.title": "Demo mode: sample data to try every feature.",
-            "demo.load": "Load sample data", "demo.exit": "Exit demo", "demo.simulate": "Simulate:",
-            "demo.COMPRA": "Purchase", "demo.COMPRA_INUSUAL": "Unusual purchase", "demo.TRANSFER_PROPIA": "Own transfer",
-            "demo.TRANSFER_TERCERO": "Transfer to third party", "demo.VIAJE_IMPOSIBLE": "Impossible trip", "demo.PAGO_DIVISION": "A friend pays their share", "demo.TARJETA_AJENA": "Unregistered card",
-            "demo.tools": "Demo tools", "demo.toolsOpen": "Money and transactions…", "demo.account": "Account", "demo.amount": "Amount to add", "demo.password": "Demo password", "demo.addMoney": "Add money", "demo.resetMoney": "Reset money", "demo.resetTx": "Reset account transactions",
-            "demo.bank": "Bank", "demo.split": "Split expenses", "demo.statements": "Statements & reports",
-            "demo.splitRun": "Split a dinner", "demo.importRun": "Upload sample statement", "demo.goReports": "View reports",
-            "demo.goTrace": "View Trace", "demo.goPurchases": "My purchases", "demo.expense": "Log an expense",
+            "install.ready": "Install Nexorix as an app on this device: it opens in its own window and from its icon.",
+            "install.ios": "On iPhone or iPad: tap the Share button and choose “Add to Home Screen”.",
+            "install.installed": "Nexorix is already installed on this device.",
+            "install.manual": "From your browser menu choose “Install app” or “Add to Home Screen”.",
+            "install.button": "Install Nexorix", "settings.install": "Install the app",
             "profile.title": "My account", "profile.name": "Name", "profile.username": "Username", "profile.account": "Account no.",
             "profile.personal": "Personal information", "profile.cedula": "ID number", "profile.phone": "Phone", "profile.email": "Email",
             "profile.kyc": "Identity", "profile.note": "For your security, personal data is shown masked.",
             "profile.close": "Close", "profile.changePhoto": "Change photo", "profile.removePhoto": "Remove photo", "profile.photoSaved": "Photo updated.", "profile.none": "Not set",
             "settings.title": "Settings", "settings.language": "Language", "settings.languageHelp":
                 "Changes menus, general buttons and this page. The rest of the content stays in Spanish for now.",
-            "settings.demo": "Demo mode", "settings.demoHelp": "Shows the Demo bar to try each feature with sample data.",
             "settings.saved": "Language saved.", "settings.es": "Español", "settings.en": "English"
         }
     },
@@ -149,240 +141,69 @@ const Nexorix = {
         document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = Nexorix.t(el.dataset.i18n));
     },
 
-    /* ---------- Modo Demo ---------- */
+    /* ---------- Instalar como app (celular y computador) ---------- */
+    install: {
+        deferred: null,
 
-    demo: {
-        /** Escenarios de la barra Demo: el servidor los arma como webhooks del banco. */
-        scenarios: ["COMPRA", "COMPRA_INUSUAL", "TRANSFER_PROPIA", "TRANSFER_TERCERO", "VIAJE_IMPOSIBLE", "TARJETA_AJENA", "PAGO_DIVISION"],
+        standalone() {
+            return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+        },
 
-        isOn() {
+        ios() {
+            return /iphone|ipad|ipod/i.test(navigator.userAgent)
+                || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        },
+
+        /** installed | ready (el navegador permite instalar ya) | ios (hay que hacerlo a mano) | manual */
+        state() {
+            if (Nexorix.install.standalone()) return "installed";
+            if (Nexorix.install.deferred) return "ready";
+            return Nexorix.install.ios() ? "ios" : "manual";
+        },
+
+        async prompt() {
+            const event = Nexorix.install.deferred;
+            if (!event) return false;
+            event.prompt();
+            const choice = await event.userChoice;
+            Nexorix.install.deferred = null;
+            return choice.outcome === "accepted";
+        },
+
+        /** Franja discreta con "Instalar" en las paginas con barra superior; se puede cerrar por 14 dias. */
+        mountBanner() {
+            const state = Nexorix.install.state();
+            if (state === "installed" || document.getElementById("installBanner")) return;
             try {
-                return localStorage.getItem("nexorix.demo") === "on";
-            } catch (error) {
-                return false;
-            }
-        },
-
-        /** Enciende o apaga la barra Demo en este navegador. */
-        set(on) {
-            try {
-                localStorage.setItem("nexorix.demo", on ? "on" : "off");
-            } catch (error) {
-                // Sin almacenamiento: la barra solo dura en esta vista.
-            }
-            Nexorix.mountDemo();
-        },
-
-        /** Enciende el modo Demo y, si aun no hay datos de ejemplo, los crea. */
-        async enable() {
-            Nexorix.demo.set(true);
-            try {
-                await Nexorix.demo.seed();
-            } catch (error) {
-                Nexorix.toast(error.message, "error");
-            }
-            document.dispatchEvent(new Event("nexorix:changed"));
-        },
-
-        /** Crea cuentas de ejemplo, vincula una al banco y carga compras habituales. */
-        async seed() {
-            const existing = await Nexorix.api("/api/accounts");
-            if (!existing.ok) throw new Error(Nexorix.errorOf(existing, "No fue posible leer tus cuentas."));
-            if (existing.data.some(a => String(a.name).endsWith("(ejemplo)"))) return;
-
-            const create = async (path, params) => {
-                const result = await Nexorix.api(path + "?" + new URLSearchParams(params), { method: "POST" });
-                if (!result.ok) throw new Error(Nexorix.errorOf(result, "No fue posible crear el ejemplo."));
-                return result.data;
-            };
-
-            const nequi = await create("/api/accounts",
-                { name: "Nequi (ejemplo)", bank: "Nequi", type: "BILLETERA", balance: 3000000 });
-            await create("/api/accounts",
-                { name: "Davivienda (ejemplo)", bank: "Davivienda", type: "AHORROS", balance: 0 });
-            const debit = await create("/api/accounts",
-                { name: "Visa débito (ejemplo)", bank: "Bancolombia", type: "DEBITO", balance: 800000, cardNumber: "4111 1111 1111 1111", cardExpiry: "12/30" });
-            await create("/api/accounts",
-                { name: "Mastercard crédito (ejemplo)", bank: "Davivienda", type: "CREDITO", balance: 1500000,
-                  creditLimit: 2000000, cardNumber: "5555 5555 5555 4444", cardExpiry: "09/29" });
-            await create("/api/transactions",
-                { accountId: nequi.id, type: "INGRESO", amount: 3000000, description: "Salario" });
-
-            const linked = await Nexorix.api("/api/bank/links", { method: "POST", json: { accountId: debit.id } });
-            if (!linked.ok) throw new Error(Nexorix.errorOf(linked, "No fue posible vincular el banco de ejemplo."));
-            await Nexorix.demo.run("SEMILLA", true);
-            Nexorix.toast("Datos de ejemplo cargados. Prueba los demás escenarios desde la barra Demo.");
-        },
-
-        /** Demo de Dividir gastos: amigos de ejemplo y una cena dividida entre tres. */
-        async split() {
-            const result = await Nexorix.api("/api/split/demo", { method: "POST" });
-            if (!result.ok) throw new Error(Nexorix.errorOf(result, "No se pudo crear la división de ejemplo."));
-            Nexorix.toast("Cena dividida con Camila y Andrés. Mira \"Me deben\".");
-            if (location.pathname === "/dividir.html") location.hash = "#dividir", location.reload();
-            else location.href = "/dividir.html";
-        },
-
-        /** Sube un extracto de ejemplo a la primera cuenta y abre Contador para verlo procesar. */
-        async importSample() {
-            await Nexorix.demo.seed();
-            const accounts = await Nexorix.api("/api/accounts");
-            if (!accounts.ok || !accounts.data.length) throw new Error("Crea una cuenta primero.");
-            const file = await fetch("/demo-extracto.csv").then(r => r.blob());
-            const form = new FormData();
-            form.append("files", new File([file], "extracto-demo.csv", { type: "text/csv" }));
-            form.append("accountId", accounts.data[0].id);
-            const result = await Nexorix.api("/api/imports", { method: "POST", body: form });
-            if (!result.ok) throw new Error(Nexorix.errorOf(result, "No se pudo subir el extracto de ejemplo."));
-            try {
-                sessionStorage.setItem("nexorix.imports", JSON.stringify(result.data.map(b => b.batchId)));
+                if (Date.now() < Number(localStorage.getItem("nexorix.installDismissed") || 0)) return;
             } catch (error) { /* sin almacenamiento */ }
-            location.href = "/contador.html";
-        },
-
-        /** Registra un gasto de ejemplo (en la primera cuenta). */
-        async expense() {
-            await Nexorix.demo.seed();
-            const accounts = await Nexorix.api("/api/accounts");
-            if (!accounts.ok || !accounts.data.length) throw new Error("Crea una cuenta primero.");
-            const params = new URLSearchParams({ accountId: accounts.data[0].id, type: "EGRESO", amount: 36500,
-                description: "Almuerzo de ejemplo" });
-            const result = await Nexorix.api("/api/transactions?" + params, { method: "POST" });
-            if (!result.ok) throw new Error(Nexorix.errorOf(result, "No se pudo registrar el gasto."));
-            Nexorix.toast("Gasto registrado.");
-            document.dispatchEvent(new Event("nexorix:changed"));
-        },
-
-        /** Herramientas de demo con clave: agregar dinero, reiniciar dinero y reiniciar movimientos de una cuenta. */
-        async admin() {
-            const accounts = await Nexorix.api("/api/accounts");
-            if (!accounts.ok || !accounts.data.length) throw new Error("Crea una cuenta primero.");
-            let dialog = document.getElementById("demoAdminDialog");
-            if (dialog) dialog.remove();
-            dialog = document.createElement("dialog");
-            dialog.id = "demoAdminDialog";
-            dialog.className = "sheet";
-            dialog.innerHTML = `<div class="sheet-body"><div class="sheet-head"><h2>${Nexorix.esc(Nexorix.t("demo.tools"))}</h2>`
-                + `<button class="text-button" type="button" data-x>${Nexorix.esc(Nexorix.t("profile.close"))}</button></div>`
-                + `<div class="field"><label for="daAccount">${Nexorix.esc(Nexorix.t("demo.account"))}</label><select id="daAccount">`
-                + accounts.data.map(a => `<option value="${a.id}">${Nexorix.esc(a.name)}</option>`).join("") + `</select></div>`
-                + `<div class="field"><label for="daAmount">${Nexorix.esc(Nexorix.t("demo.amount"))}</label>`
-                + `<input id="daAmount" inputmode="numeric" placeholder="$ 0" autocomplete="off"></div>`
-                + `<div class="field"><label for="daPass">${Nexorix.esc(Nexorix.t("demo.password"))}</label>`
-                + `<input id="daPass" type="password" autocomplete="off"></div>`
-                + `<div class="demo-group"><button class="button small" type="button" data-act="add">${Nexorix.esc(Nexorix.t("demo.addMoney"))}</button>`
-                + `<button class="button secondary small" type="button" data-act="money">${Nexorix.esc(Nexorix.t("demo.resetMoney"))}</button>`
-                + `<button class="button secondary small" type="button" data-act="tx">${Nexorix.esc(Nexorix.t("demo.resetTx"))}</button></div>`
-                + `<p class="notice" id="daMsg" role="status" aria-live="polite"></p></div>`;
-            document.body.appendChild(dialog);
-            dialog.addEventListener("click", async (e) => {
-                if (e.target === dialog || e.target.dataset.x !== undefined) { dialog.close(); return; }
-                const act = e.target.dataset.act;
-                if (!act) return;
-                const body = { password: dialog.querySelector("#daPass").value,
-                    accountId: Number(dialog.querySelector("#daAccount").value),
-                    amount: Nexorix.parseMoney(dialog.querySelector("#daAmount").value || "0") };
-                const path = { add: "add-money", money: "reset-money", tx: "reset-transactions" }[act];
-                const r = await Nexorix.api("/api/bank/demo-admin/" + path, { method: "POST", json: body });
-                Nexorix.say(dialog.querySelector("#daMsg"), r.ok ? "Listo ✔" : Nexorix.errorOf(r, "No se pudo."), r.ok ? "ok" : "error");
-                if (r.ok) document.dispatchEvent(new Event("nexorix:changed"));
+            const bar = document.createElement("div");
+            bar.id = "installBanner";
+            bar.className = "install-banner";
+            bar.setAttribute("role", "region");
+            bar.innerHTML = `<span>${Nexorix.esc(Nexorix.t("install." + (state === "ready" ? "ready" : state)))}</span>`
+                + (state === "ready" ? `<button class="button small" type="button" data-act="install">${Nexorix.esc(Nexorix.t("install.button"))}</button>` : "")
+                + '<button class="text-button" type="button" data-act="close" aria-label="Cerrar">&times;</button>';
+            bar.addEventListener("click", async (event) => {
+                const act = event.target.closest("button")?.dataset.act;
+                if (act === "install") await Nexorix.install.prompt();
+                if (act === "close" || act === "install") {
+                    try { localStorage.setItem("nexorix.installDismissed", String(Date.now() + 14 * 86400000)); } catch (error) { /* ok */ }
+                    bar.remove();
+                }
             });
-            dialog.showModal();
-        },
-
-        /** Ejecuta un escenario del simulador de banco. */
-        async run(scenario, quiet) {
-            const result = await Nexorix.api("/api/bank/demo/" + scenario, { method: "POST" });
-            if (!result.ok) {
-                const message = Nexorix.errorOf(result, "No se pudo simular.");
-                if (!quiet) Nexorix.toast(message, "error");
-                throw new Error(message);
-            }
-            if (!quiet) {
-                Nexorix.toast(result.data.map(x => x.status).join(", ") + ". Revisa Panel y Contador.");
-                document.dispatchEvent(new Event("nexorix:changed"));
-            }
-            return result.data;
+            document.body.prepend(bar);
         }
     },
 
-    /**
-     * Dibuja lo comun en todas las paginas: boton Demo en la barra superior,
-     * barra Demo (si esta encendida) e idioma. Se llama al cargar la pagina.
-     */
-    mountDemo() {
+    /** Garantiza el contenedor de la derecha de la barra superior (avatar, menu, salir). */
+    mountWho() {
         const topbar = document.querySelector(".topbar");
-        if (!topbar) return;
-        let who = topbar.querySelector(".who");
-        if (!who) {
-            who = document.createElement("div");
+        if (topbar && !topbar.querySelector(".who")) {
+            const who = document.createElement("div");
             who.className = "who";
             topbar.appendChild(who);
         }
-
-        let toggle = document.getElementById("demoToggle");
-        if (!toggle) {
-            toggle = document.createElement("button");
-            toggle.id = "demoToggle";
-            toggle.type = "button";
-            toggle.className = "demo-toggle";
-            toggle.addEventListener("click", () => Nexorix.demo.set(!Nexorix.demo.isOn()));
-            who.prepend(toggle);
-        }
-        const on = Nexorix.demo.isOn();
-        toggle.textContent = on ? Nexorix.t("demo.on") : Nexorix.t("demo.label");
-        toggle.setAttribute("aria-pressed", String(on));
-        toggle.title = Nexorix.t("demo.title");
-
-        let strip = document.getElementById("demoStrip");
-        if (!on) {
-            if (strip) strip.remove();
-            return;
-        }
-        if (!strip) {
-            strip = document.createElement("div");
-            strip.id = "demoStrip";
-            strip.className = "demo-strip";
-            strip.setAttribute("role", "region");
-            strip.setAttribute("aria-label", Nexorix.t("demo.title"));
-            topbar.after(strip);
-            strip.addEventListener("click", async (event) => {
-                const link = event.target.closest("a[data-go]");
-                if (link) {
-                    Nexorix.demo.seed().catch(() => {}).finally(() => { location.href = link.dataset.go; });
-                    event.preventDefault();
-                    return;
-                }
-                const button = event.target.closest("button[data-demo]");
-                if (!button) return;
-                button.disabled = true;
-                try {
-                    if (button.dataset.demo === "load") await Nexorix.demo.enable();
-                    else if (button.dataset.demo === "exit") Nexorix.demo.set(false);
-                    else if (button.dataset.demo === "split") await Nexorix.demo.split();
-                    else if (button.dataset.demo === "import") await Nexorix.demo.importSample();
-                    else if (button.dataset.demo === "admin") await Nexorix.demo.admin();
-                    else if (button.dataset.demo === "expense") await Nexorix.demo.expense();
-                    else await Nexorix.demo.run(button.dataset.demo);
-                } catch (error) {
-                    Nexorix.toast(error.message, "error");
-                } finally {
-                    button.disabled = false;
-                }
-            });
-        }
-        const t = (k) => Nexorix.esc(Nexorix.t(k));
-        const btn = (id, label, primary) => `<button class="button ${primary ? "" : "secondary "}small" type="button" data-demo="${id}">${label}</button>`;
-        const go = (url, label) => `<a class="button secondary small" href="${url}" data-go="${url}">${label}</a>`;
-        strip.innerHTML = `<p>${t("demo.title")}</p>`
-            + `<div class="demo-group"><span class="demo-label">${t("demo.bank")}</span>${btn("load", t("demo.load"), true)}`
-            + Nexorix.demo.scenarios.map(id => btn(id, t("demo." + id))).join("") + `</div>`
-            + `<div class="demo-group"><span class="demo-label">${t("demo.split")}</span>${btn("split", t("demo.splitRun"))}`
-            + `${btn("expense", t("demo.expense"))}${go("/dividir.html#compras", t("demo.goPurchases"))}</div>`
-            + `<div class="demo-group"><span class="demo-label">${t("demo.statements")}</span>${btn("import", t("demo.importRun"))}`
-            + `${go("/contador.html#trace", t("demo.goTrace"))}${go("/contador.html#reportes", t("demo.goReports"))}`
-            + `<div class="demo-group"><span class="demo-label">${t("demo.tools")}</span>${btn("admin", t("demo.toolsOpen"))}</div>`
-            + `<button class="text-button" type="button" data-demo="exit">${t("demo.exit")}</button></div>`;
     },
 
     /** Pone la foto como fondo del avatar (o la quita y vuelven las iniciales). */
@@ -423,7 +244,7 @@ const Nexorix = {
 
     /** El avatar de la barra abre la ventana "Mi cuenta" con los datos personales censurados. */
     /**
-     * Celular: la navegacion (Panel, Contador, Seguridad, Ajustes...), el modo Demo y Salir van en un menu
+     * Celular: la navegacion (Panel, Contador, Seguridad, Ajustes...) y Salir van en un menu
      * de tres lineas. En computador el boton no se ve y la barra queda como siempre.
      */
     mountMenu() {
@@ -447,16 +268,13 @@ const Nexorix = {
             if (document.getElementById("menuPanel")) { close(); return; }
             const links = [...document.querySelectorAll(".main-nav a")].map(a =>
                 `<a href="${a.getAttribute("href")}" class="${/seguridad|ajustes/.test(a.getAttribute("href")) ? "" : "primary"}"${a.getAttribute("aria-current") ? ' aria-current="page"' : ""}>${a.textContent}</a>`).join("");
-            const demo = document.getElementById("demoToggle");
             const panel = document.createElement("div");
             panel.id = "menuPanel";
             panel.className = "menu-panel";
             panel.innerHTML = `<nav aria-label="Secciones">${links}</nav>`
-                + (demo ? `<button type="button" data-act="demo">${demo.textContent}</button>` : "")
                 + '<button type="button" data-act="logout" class="danger">Salir</button>';
             panel.addEventListener("click", (e) => {
                 const act = e.target.closest("button")?.dataset.act;
-                if (act === "demo") { demo.click(); close(); }
                 if (act === "logout") document.getElementById("logoutButton")?.click();
             });
             document.querySelector(".topbar").appendChild(panel);
@@ -839,9 +657,10 @@ const Nexorix = {
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    // Idioma, boton Demo y barra Demo (comunes a todas las paginas).
+    // Idioma y barra superior (comunes a todas las paginas).
     Nexorix.applyLang();
-    Nexorix.mountDemo();
+    Nexorix.mountWho();
+    Nexorix.install.mountBanner();
     Nexorix.mountProfile();
 
     // Dibuja el logo en cualquier elemento con la clase "brand-mark".
@@ -892,6 +711,19 @@ document.addEventListener("DOMContentLoaded", () => {
             fields.forEach(field => field.type = box.checked ? "text" : "password");
         });
     });
+});
+
+// Chrome / Edge / Android avisan cuando la app se puede instalar; se guarda el aviso para usarlo con un boton.
+window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    Nexorix.install.deferred = event;
+    document.dispatchEvent(new Event("nexorix:installable"));
+    if (document.readyState !== "loading") Nexorix.install.mountBanner();
+});
+window.addEventListener("appinstalled", () => {
+    Nexorix.install.deferred = null;
+    document.getElementById("installBanner")?.remove();
+    document.dispatchEvent(new Event("nexorix:installable"));
 });
 
 // Instalable en el celular (Chrome: "Agregar a la pantalla de inicio").

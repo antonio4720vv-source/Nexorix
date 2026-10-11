@@ -4,8 +4,11 @@ import com.nexorix.account.Account;
 import com.nexorix.account.AccountRepository;
 import com.nexorix.account.AccountService;
 import com.nexorix.ai.RateLimiter;
-import com.nexorix.transaction.TransactionRepository;
 import com.nexorix.transaction.TransactionService;
+import com.nexorix.banking.BankLink;
+import com.nexorix.banking.BankLinkService;
+import com.nexorix.banking.BankSyncService;
+import com.nexorix.banking.BankWebhookPayload;
 import com.nexorix.user.User;
 import com.nexorix.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -18,8 +21,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -38,7 +41,6 @@ public class NotificationService {
 
     public static final String TOKEN_PREFIX = "nxr_";
     private static final int MAX_TEXT = 1000;
-    private static final ZoneId ZONE = ZoneId.of("America/Bogota");
 
     /** Resultado de recibir un aviso. */
     public enum Outcome { REGISTERED, DUPLICATE, IGNORED }
@@ -47,21 +49,20 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
     private final AccountService accountService;
-    private final TransactionService transactionService;
-    private final TransactionRepository transactionRepository;
+    private final BankSyncService sync;
+    private final BankLinkService linkService;
     private final SecureRandom random = new SecureRandom();
     private final RateLimiter limiter = new RateLimiter(120, Duration.ofMinutes(1));
 
     public NotificationService(NotificationTokenRepository tokens, UserRepository userRepository,
                                AccountRepository accountRepository, AccountService accountService,
-                               TransactionService transactionService,
-                               TransactionRepository transactionRepository) {
+                               BankSyncService sync, BankLinkService linkService) {
         this.tokens = tokens;
         this.userRepository = userRepository;
         this.accountRepository = accountRepository;
         this.accountService = accountService;
-        this.transactionService = transactionService;
-        this.transactionRepository = transactionRepository;
+        this.sync = sync;
+        this.linkService = linkService;
     }
 
     /** Crea (o cambia) la llave de la persona. La llave anterior deja de servir. */
@@ -122,17 +123,32 @@ public class NotificationService {
         }
         ParsedNotification movement = parsed.get();
 
-        LocalDateTime when = whenOf(postedAtMillis);
-        String reference = "NTF-" + hash(user.getId() + "|" + cleanPackage + "|" + postedAtMillis + "|"
-                + cleanTitle + "|" + cleanText).substring(0, 24).toUpperCase();
-        if (transactionRepository.existsByAccountUserIdAndReference(user.getId(), reference)) {
+        OffsetDateTime when = whenOf(postedAtMillis);
+        // Mismo aviso (mismo texto y hora) = mismo evento: no se registra dos veces.
+        String eventId = "ntf-" + hash(user.getId() + "|" + cleanPackage + "|" + postedAtMillis + "|"
+                + cleanTitle + "|" + cleanText).substring(0, 32);
+
+        Account account = accountFor(user, movement);
+        BankLink link = linkService.linkFor(user, account);
+
+        boolean debit = movement.type().equals("EGRESO");
+        String channel = movement.purchase() ? "POS" : "TRANSFER";
+        BankWebhookPayload.Counterparty other = !movement.purchase() && movement.label() != null
+                ? new BankWebhookPayload.Counterparty(movement.label(), null, null) : null;
+        BankSyncService.Result result = sync.process(new BankWebhookPayload(eventId, movement.bank().name(),
+                link.getExternalRef(), debit ? "DEBIT" : "CREDIT", movement.amount(), "COP", channel,
+                movement.purchase() ? movement.label() : null, other, null, when));
+
+        if (result.status().equals("DUPLICATE")) {
             saved.markUsed(false);
             return Outcome.DUPLICATE;
         }
-
-        Account account = accountFor(user, movement);
-        transactionService.saveFromNotification(account, movement.amount(), movement.type(),
-                movement.description(), when, reference, movement.balance());
+        // Si el aviso dice el saldo, ese es el saldo real de la cuenta.
+        if (movement.balance() != null && result.status().equals("APPLIED")
+                && movement.balance().compareTo(TransactionService.MAX_AMOUNT) <= 0) {
+            account.setBalance(movement.balance().setScale(2, java.math.RoundingMode.HALF_UP));
+            accountRepository.save(account);
+        }
         saved.markUsed(true);
         return Outcome.REGISTERED;
     }
@@ -151,12 +167,12 @@ public class NotificationService {
                         user.getUsername()));
     }
 
-    private static LocalDateTime whenOf(Long millis) {
-        LocalDateTime now = LocalDateTime.now(ZONE);
+    private static OffsetDateTime whenOf(Long millis) {
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         if (millis == null || millis <= 0) {
             return now;
         }
-        LocalDateTime posted = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZONE);
+        OffsetDateTime posted = OffsetDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneOffset.UTC);
         // Fechas del futuro o muy viejas: se usa la hora de llegada.
         return posted.isAfter(now.plusMinutes(5)) || posted.isBefore(now.minusDays(7)) ? now : posted;
     }

@@ -74,8 +74,13 @@ public final class NotificationParser {
             return Optional.empty();
         }
 
-        return Optional.of(new ParsedNotification(bank.get(), type, amount,
-                describe(type, safeText.isBlank() ? safeTitle : safeText), balance));
+        String body = safeText.isBlank() ? safeTitle : safeText;
+        boolean withdrawal = plain.contains("retiro");
+        boolean sent = plain.contains("enviaste") || plain.contains("transferiste") || plain.contains("transferencia");
+        boolean purchase = type.equals("EGRESO") && !sent
+                && (withdrawal || plain.contains("compra") || plain.contains("pagaste") || plain.contains("pago"));
+        String label = withdrawal ? "Retiro en cajero" : counterparty(body);
+        return Optional.of(new ParsedNotification(bank.get(), type, amount, label, purchase, balance));
     }
 
     private static String direction(String plain) {
@@ -101,23 +106,16 @@ public final class NotificationParser {
         return best;
     }
 
-    private static String describe(String type, String text) {
-        // Se busca la contraparte despues del monto: "Recibiste $50.000 de Ana Perez".
+    /** Persona o comercio que aparece despues del monto: "Recibiste $50.000 de Ana Perez". */
+    private static String counterparty(String text) {
         int dollar = text.indexOf('$');
         Matcher party = PARTY.matcher(dollar >= 0 ? text.substring(dollar) : text);
-        String who = null;
         while (party.find()) {
             String candidate = party.group(1).trim().replaceAll("\\s+(con|el|la|en|por|a las?)\\s.*$", "").trim();
             if (candidate.length() >= 2 && !candidate.matches("(?i)^(tu|su|la|el|una?|tarjeta|cuenta)\\b.*")) {
-                who = candidate;
-                break;
+                return StatementValues.cleanDescription(candidate);
             }
         }
-        if (who != null) {
-            String lead = type.equals("INGRESO") ? "Recibido de " : text.toLowerCase().contains("compra")
-                    ? "Compra en " : "Enviado a ";
-            return StatementValues.cleanDescription(lead + who);
-        }
-        return StatementValues.cleanDescription(text);
+        return null;
     }
 }

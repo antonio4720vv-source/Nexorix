@@ -11,5 +11,7 @@ public interface BankLinkRepository extends JpaRepository<BankLink, Long> {
 
     List<BankLink> findByUserIdOrderByIdAsc(Long userId);
 
+    Optional<BankLink> findByAccountId(Long accountId);
+
     boolean existsByAccountId(Long accountId);
 }

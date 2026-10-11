@@ -14,8 +14,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     List<Transaction> findByAccountUserUsernameOrderByTransactionDateDesc(String username);
 
-    /** Para no registrar dos veces el mismo aviso del celular. */
-    boolean existsByAccountUserIdAndReference(Long userId, String reference);
 
     /** Movimientos de una cuenta en un rango de fechas (para detectar duplicados). */
     List<Transaction> findByAccountIdAndTransactionDateBetween(

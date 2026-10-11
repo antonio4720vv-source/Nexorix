@@ -8,6 +8,7 @@ import com.nexorix.whatsapp.WhatsappLinkRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -35,6 +36,13 @@ public class FraudAlertNotifier {
     private final TransactionTemplate tx;
     private final TaskExecutor executor;
 
+    /** Plantilla aprobada por Meta para alertas: WhatsApp solo deja escribir primero con una plantilla. */
+    @Value("${nexorix.whatsapp.alert-template-name:}")
+    private String alertTemplate = "";
+
+    @Value("${nexorix.whatsapp.template-language:es}")
+    private String alertLanguage = "es";
+
     public FraudAlertNotifier(UserRepository users, WhatsappLinkRepository links,
                               AppNotificationRepository notifications, WhatsappClient whatsapp, SmsClient sms,
                               TransactionTemplate tx, @Qualifier("whatsappExecutor") TaskExecutor executor) {
@@ -60,10 +68,10 @@ public class FraudAlertNotifier {
                 log.warn("Alerta critica del usuario {} sin celular: solo quedo en la app.", event.userId());
             } else {
                 channels.add(attempt("WHATSAPP", () -> whatsapp.isEnabled()
-                        ? (whatsapp.sendText(phone, event.whatsappText()) != null ? "WHATSAPP" : null)
-                        : demo("WHATSAPP", phone, event.whatsappText())));
+                        ? (sendWhatsapp(phone, event) != null ? "WHATSAPP" : null)
+                        : unconfigured("WHATSAPP", phone, event.whatsappText())));
                 channels.add(attempt("SMS", () -> sms.send(phone, event.smsText())
-                        ? "SMS" : demo("SMS", phone, event.smsText())));
+                        ? "SMS" : unconfigured("SMS", phone, event.smsText())));
             }
         } catch (Exception exception) {
             log.error("Error enviando la alerta critica {}", event.notificationId(), exception);
@@ -71,6 +79,17 @@ public class FraudAlertNotifier {
         String sent = String.join(",", channels.stream().filter(java.util.Objects::nonNull).toList());
         tx.executeWithoutResult(status -> notifications.findById(event.notificationId())
                 .ifPresent(notification -> notification.setChannels(sent)));
+    }
+
+    /**
+     * Con plantilla de alerta configurada sale como plantilla (llega siempre); sin ella sale como texto
+     * libre, que WhatsApp solo entrega si la persona escribio en las ultimas 24 horas.
+     */
+    private String sendWhatsapp(String phone, CriticalFraudAlertEvent event) {
+        String template = alertTemplate == null ? "" : alertTemplate.trim();
+        return template.isEmpty()
+                ? whatsapp.sendText(phone, event.whatsappText())
+                : whatsapp.sendTemplate(phone, template, alertLanguage, List.of(event.smsText()));
     }
 
     private String phoneOf(Long userId) {
@@ -94,9 +113,9 @@ public class FraudAlertNotifier {
         }
     }
 
-    /** Sin claves configuradas: solo queda en el log y se marca "(demo)" en la campanita. */
-    private String demo(String channel, String phone, String text) {
-        log.warn("[DEMO {}] a +{}: {}", channel, phone, text);
-        return channel + "(demo)";
+    /** Sin claves configuradas: solo queda en el log y se marca "(sin configurar)" en la campanita. */
+    private String unconfigured(String channel, String phone, String text) {
+        log.warn("[{} SIN CONFIGURAR] a +{}: {}", channel, phone, text);
+        return channel + "(sin configurar)";
     }
 }

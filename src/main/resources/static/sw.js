@@ -3,7 +3,13 @@
 self.addEventListener("install", () => self.skipWaiting());
 // Cache para que la app abra rapido e instale en el celular. Nunca guarda respuestas de /api
 // (son datos financieros de la persona).
-const CACHE = "nexorix-v1";
+const CACHE = "nexorix-v2";
+const OFFLINE = "/offline.html";
+const SHELL = [OFFLINE, "/icon-192.png", "/nexorix.css", "/nexorix.js"];
+
+self.addEventListener("install", (event) => {
+    event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).catch(() => {}));
+});
 
 self.addEventListener("activate", (event) => event.waitUntil(
     caches.keys()
@@ -27,7 +33,10 @@ self.addEventListener("fetch", (event) => {
                 }
                 return response;
             })
-            .catch(() => caches.match(request))
+            .catch(() => request.mode === "navigate"
+                // Una pagina sin sus datos (que nunca se guardan) no sirve: se muestra el aviso.
+                ? caches.match(OFFLINE)
+                : caches.match(request).then(hit => hit || Response.error()))
     );
 });
 

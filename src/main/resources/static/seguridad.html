@@ -71,13 +71,13 @@
     </section>
 
     <section class="panel stack">
-        <div class="panel-head"><h2>Cuentas vinculadas</h2><a class="button small" href="/dashboard.html">Vincular un banco</a></div>
-        <p class="muted" style="margin:0">Para conectar un banco, billetera o tarjeta nuevo usa «Vincular» en el panel: el saldo llega solo.</p>
+        <div class="panel-head"><h2>Cuentas vinculadas</h2><a class="button small" href="/dashboard.html">Agregar un banco</a></div>
+        <p class="muted" style="margin:0">Para agregar un banco, billetera o tarjeta nuevo usa «Agregar» en el panel; los movimientos llegan solos desde las notificaciones de tu celular.</p>
         <div id="links"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
             <div class="field"><label for="accountSelect">Cuenta de Nexorix</label><select id="accountSelect"></select></div>
             <div class="field"><label for="bankRef">Referencia de la cuenta en el banco (solo cuentas reales)</label>
-                <input id="bankRef" maxlength="100" placeholder="Déjalo vacío para la demo" autocomplete="off"></div>
+                <input id="bankRef" maxlength="100" placeholder="Solo si tu agregador te la dio" autocomplete="off"></div>
             <div class="field"><label for="bankPhone">Celular registrado en el banco (se verifica que sea el tuyo)</label>
                 <input id="bankPhone" type="tel" maxlength="20" placeholder="+57 300 123 4567" autocomplete="off"></div>
             <button class="button secondary" id="linkAccount" type="button">Vincular al banco</button>

@@ -37,13 +37,10 @@ public class BankLinkService {
     private final UserRepository users;
     private final WhatsappLinkRepository whatsapp;
     private final AccountService accountService;
-    private final BankBalanceProvider balances;
 
     public BankLinkService(BankLinkRepository links, BankEventRepository events, AccountRepository accounts,
-                           UserRepository users, WhatsappLinkRepository whatsapp, AccountService accountService,
-                           BankBalanceProvider balances) {
+                           UserRepository users, WhatsappLinkRepository whatsapp, AccountService accountService) {
         this.accountService = accountService;
-        this.balances = balances;
         this.links = links;
         this.events = events;
         this.accounts = accounts;
@@ -64,20 +61,17 @@ public class BankLinkService {
     }
 
     /**
-     * Vincula un banco o billetera nuevo: crea la cuenta en Nexorix y trae el saldo del banco.
-     * La persona solo elige el banco; el saldo NUNCA se le pregunta.
+     * Agrega un banco o billetera real: crea la cuenta en Nexorix y la deja lista para recibir los
+     * movimientos (avisos del celular o agregador). El saldo es opcional: sin el, empieza en cero y se
+     * corrige solo cuando un aviso del banco lo informa.
      */
     @Transactional
-    public LinkView connect(String username, String bank, String type, String name, String cardNumber,
-                            String cardExpiry) {
+    public LinkView connect(String username, String bank, String type, String name, java.math.BigDecimal balance,
+                            String cardNumber, String cardExpiry) {
         user(username);
-        String cleanBank = bank == null ? "" : bank.trim();
-        if (cleanBank.isEmpty()) {
-            throw new IllegalArgumentException("Elige tu banco o billetera.");
-        }
-        if (cleanBank.length() > 40) {
-            throw new IllegalArgumentException("El nombre del banco es demasiado largo.");
-        }
+        String cleanBank = com.nexorix.bank.BankCatalog.byName(bank)
+                .orElseThrow(() -> new IllegalArgumentException("Elige un banco o billetera de la lista."))
+                .name();
         String cleanType = type == null || type.isBlank() ? "AHORROS" : type.trim().toUpperCase(Locale.ROOT);
         String baseName = name == null || name.isBlank() ? cleanBank : name.trim();
 
@@ -90,13 +84,11 @@ public class BankLinkService {
         }
 
         String upperBank = cleanBank.toUpperCase(Locale.ROOT);
-        String ref = "demo-%s-%06d".formatted(upperBank.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", ""),
-                RANDOM.nextInt(1_000_000));
-        while (links.findByExternalRef(ref).isPresent()) {
-            ref = ref + "x";
+        String ref = newRef(upperBank);
+        if (balance == null) {
+            balance = java.math.BigDecimal.ZERO;
         }
-        java.math.BigDecimal balance = balances.currentBalance(upperBank, ref);
-        // En una tarjeta de credito el "saldo" que trae el banco es el cupo disponible (el cupo total se asume igual).
+        // En una tarjeta de credito el "saldo" es el cupo disponible (el cupo total se asume igual).
         boolean card = cardNumber != null && !cardNumber.isBlank();
         Account account = card
                 ? accountService.createAccount(accountName, cleanType, cleanBank, balance, username,
@@ -105,7 +97,7 @@ public class BankLinkService {
         return view(links.save(new BankLink(user(username), account, upperBank, ref)));
     }
 
-    /** En produccion externalRef lo da el agregador al conectar el banco; en la demo se genera si falta. */
+    /** La referencia de la cuenta: la da el agregador al conectar el banco; si no hay agregador, se genera. */
     @Transactional
     public LinkView link(String username, Long accountId, String bank, String externalRef) {
         return link(username, accountId, bank, externalRef, null);
@@ -114,7 +106,7 @@ public class BankLinkService {
     /**
      * Vincular una cuenta REAL (viene con la referencia del agregador) exige que el celular
      * registrado en el banco sea el de la misma persona: el de WhatsApp verificado o el de seguridad.
-     * Sin referencia (demo) no se pide.
+     * Sin referencia (cuenta agregada a mano) no se pide.
      */
     @Transactional
     public LinkView link(String username, Long accountId, String bank, String externalRef, String bankPhone) {
@@ -132,13 +124,28 @@ public class BankLinkService {
         if (cleanBank.length() > 40) {
             throw new IllegalArgumentException("El nombre del banco es demasiado largo.");
         }
-        String ref = externalRef == null || externalRef.isBlank()
-                ? "demo-%s-%06d".formatted(cleanBank.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", ""), RANDOM.nextInt(1_000_000))
-                : externalRef.trim();
+        String ref = externalRef == null || externalRef.isBlank() ? newRef(cleanBank) : externalRef.trim();
         if (ref.length() > 100 || links.findByExternalRef(ref).isPresent()) {
             throw new IllegalArgumentException("Esa referencia de cuenta no es válida o ya está en uso.");
         }
         return view(links.save(new BankLink(user, account, cleanBank, ref)));
+    }
+
+    /** La cuenta de la persona en ese banco enlazada para recibir movimientos; la enlaza si aun no lo esta. */
+    @Transactional
+    public BankLink linkFor(User user, Account account) {
+        return links.findByAccountId(account.getId()).orElseGet(() ->
+                links.save(new BankLink(user, account, account.getBank().toUpperCase(Locale.ROOT),
+                        newRef(account.getBank()))));
+    }
+
+    private String newRef(String bank) {
+        String base = "manual-" + bank.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+        String ref;
+        do {
+            ref = "%s-%06d".formatted(base, RANDOM.nextInt(1_000_000));
+        } while (links.findByExternalRef(ref).isPresent());
+        return ref;
     }
 
     private void verifySamePerson(User user, String bankPhone) {

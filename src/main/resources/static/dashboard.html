@@ -42,7 +42,7 @@
     <!-- Acciones rapidas (computador) -->
     <div class="quick-actions" id="quickActions" hidden>
         <a class="button secondary" href="/contador.html">Contador</a>
-        <button class="button secondary" type="button" data-open="accountSheet"><span data-icon="card" style="display:inline-flex"></span> Vincular banco o tarjeta</button>
+        <button class="button secondary" type="button" data-open="accountSheet"><span data-icon="card" style="display:inline-flex"></span> Agregar banco o tarjeta</button>
         <button class="button secondary" type="button" data-open="notifySheet">Notificaciones del celular</button>
     </div>
 
@@ -50,11 +50,11 @@
     <section class="welcome" id="welcomePanel" hidden>
         <h2>Conecta tu primer banco</h2>
         <p>
-            Vincula tus bancos, billeteras y tarjetas. Nexorix trae tu saldo y tus movimientos solo, en vivo,
+            Agrega tus bancos, billeteras y tarjetas. Tus movimientos llegan solos desde las notificaciones de tu celular,
             y te muestra cuánto dinero entró y salió de verdad.
         </p>
         <div class="actions">
-            <button class="button light" type="button" data-open="accountSheet"><span data-icon="card" style="display:inline-flex"></span> Vincular mi primer banco</button>
+            <button class="button light" type="button" data-open="accountSheet"><span data-icon="card" style="display:inline-flex"></span> Agregar mi primer banco</button>
             <button class="button" type="button" data-open="notifySheet">Prefiero no agregarla ahora</button>
         </div>
         <p class="muted" style="margin-top:.75rem;font-size:.85rem">
@@ -172,10 +172,10 @@
 <dialog class="sheet" id="accountSheet" aria-labelledby="accountSheetTitle">
     <form class="sheet-body" id="accountForm" novalidate>
         <div class="sheet-head">
-            <h2 id="accountSheetTitle"><span class="title-icon" data-icon="card"></span> Vincular banco, billetera o tarjeta</h2>
+            <h2 id="accountSheetTitle"><span class="title-icon" data-icon="card"></span> Agregar banco, billetera o tarjeta</h2>
             <button class="close-button" type="button" data-close aria-label="Cerrar">&times;</button>
         </div>
-        <p class="lead">Nexorix trae tu saldo y tus movimientos automáticamente y los ve en vivo: no tienes que escribir cuánto tienes.</p>
+        <p class="lead">Elige tu banco o billetera. Tus movimientos llegan solos desde las notificaciones de tu celular; el saldo es opcional y se corrige cuando un aviso lo informa.</p>
 
         <div class="field">
             <label for="accountBank"><span class="title-icon" data-icon="card"></span> Banco o billetera</label>
@@ -199,6 +199,11 @@
                 </select>
             </div>
         </div>
+        <div class="field">
+            <label for="accountBalance">Saldo actual (opcional)</label>
+            <input id="accountBalance" inputmode="numeric" placeholder="0" autocomplete="off">
+        </div>
+        <p class="money-preview" id="accountBalancePreview"></p>
         <div class="row" id="cardFields" hidden>
             <div class="field">
                 <label for="cardNumber">Número de la tarjeta</label>
@@ -216,7 +221,7 @@
             <span>Solo lectura: Nexorix no puede mover tu dinero. En una tarjeta de crédito el saldo que ves es el <strong>cupo disponible</strong>.</span></p>
 
         <div class="sheet-actions">
-            <button class="button" type="submit" id="accountSubmit">Vincular y traer mi saldo</button>
+            <button class="button" type="submit" id="accountSubmit">Agregar cuenta</button>
         </div>
     </form>
 </dialog>
@@ -388,6 +393,7 @@
         $("movementAccount").innerHTML = options;
     }
 
+    Nexorix.moneyInput($("accountBalance"), $("accountBalancePreview"));
     Nexorix.moneyInput($("movementAmount"), $("movementAmountPreview"));
 
     async function submitForm(button, path, params, okText, sheetId) {
@@ -417,32 +423,33 @@
         event.preventDefault();
         const bank = $("accountBank").value.trim();
         if (!bank) {
-            Nexorix.toast("Escribe tu banco o billetera.", "error");
+            Nexorix.toast("Elige tu banco o billetera.", "error");
             return;
         }
         const type = $("accountType").value;
         const json = { bank, type, name: $("accountName").value.trim() };
+        const balance = Nexorix.parseMoney($("accountBalance").value || "0");
+        if (!isNaN(balance) && balance > 0) json.balance = balance;
         if (["DEBITO", "CREDITO"].includes(type) && $("cardNumber").value.trim()) {
             json.cardNumber = $("cardNumber").value.trim();
             json.cardExpiry = $("cardExpiry").value.trim();
         }
         const button = $("accountSubmit");
         button.disabled = true;
-        button.textContent = "Conectando con tu banco…";
+        button.textContent = "Guardando…";
         try {
-            // El saldo nunca se pregunta: el servidor lo trae del banco al vincular.
             const result = await api("/api/bank/connect", { method: "POST", json });
             if (!result.ok) {
-                Nexorix.toast(Nexorix.errorOf(result, "No fue posible vincular. Revisa los datos."), "error");
+                Nexorix.toast(Nexorix.errorOf(result, "No fue posible agregar la cuenta. Revisa los datos."), "error");
                 return;
             }
             $("accountSheet").close();
-            Nexorix.toast(`${bank} vinculado. Tu saldo es ${money(result.data.balance)} y ya ves tus movimientos en vivo.`);
+            Nexorix.toast(`${bank} agregado.`);
             await loadMoney();
             startLive();
         } finally {
             button.disabled = false;
-            button.textContent = "Vincular y traer mi saldo";
+            button.textContent = "Agregar cuenta";
         }
     });
 

@@ -17,7 +17,7 @@ import org.springframework.web.client.RestTemplate;
 /**
  * SMS con Twilio (https://www.twilio.com/docs/sms/api/message-resource#create-a-message-resource).
  * Sin TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM no envia nada: solo deja el
- * mensaje en el log como "[DEMO SMS]", para poder probar todo sin cuenta.
+ * mensaje en el log como "[SMS SIN CONFIGURAR]".
  */
 @Component
 public class SmsClient {
@@ -48,10 +48,10 @@ public class SmsClient {
         return !accountSid.isEmpty() && !authToken.isEmpty() && !from.isEmpty();
     }
 
-    /** Devuelve true si Twilio acepto el mensaje; false si esta en modo demo. Lanza WhatsappException si falla. */
+    /** Devuelve true si Twilio acepto el mensaje; false si no hay claves de Twilio. Lanza WhatsappException si falla. */
     public boolean send(String phoneDigits, String text) {
         if (!isEnabled()) {
-            log.warn("[DEMO SMS] a +{}: {}", phoneDigits, text);
+            log.warn("[SMS SIN CONFIGURAR] a +{}: {}", phoneDigits, text);
             return false;
         }
         HttpHeaders headers = new HttpHeaders();

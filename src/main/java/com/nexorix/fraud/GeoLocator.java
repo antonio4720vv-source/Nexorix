@@ -8,8 +8,8 @@ import java.util.Map;
 
 /**
  * Convierte lo que manda el banco (coordenadas, o ciudad / pais del comercio o de la IP)
- * en un {@link Geo}. En la demo usa un catalogo corto; en produccion se cambia por el
- * geocodificador del agregador o por un servicio de IP (MaxMind, ipinfo...).
+ * en un {@link Geo}. Usa un catalogo corto de ciudades; si el agregador manda coordenadas exactas se
+ * usan esas. Se puede cambiar por un servicio de IP (MaxMind, ipinfo...).
  */
 @Component
 public class GeoLocator {

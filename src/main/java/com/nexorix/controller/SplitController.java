@@ -1,6 +1,5 @@
 package com.nexorix.controller;
 
-import com.nexorix.split.DemoSplitService;
 import com.nexorix.split.SplitService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,11 +19,9 @@ import java.util.Map;
 public class SplitController {
 
     private final SplitService service;
-    private final DemoSplitService demo;
 
-    public SplitController(SplitService service, DemoSplitService demo) {
+    public SplitController(SplitService service) {
         this.service = service;
-        this.demo = demo;
     }
 
     public record CreateRequest(String title, BigDecimal total, List<String> participants) {
@@ -38,12 +35,6 @@ public class SplitController {
     @PostMapping
     public SplitService.ExpenseView create(@RequestBody CreateRequest body) {
         return service.create(FriendController.username(), body.title(), body.total(), body.participants());
-    }
-
-    /** Demo: amigos de ejemplo y una cena dividida entre los tres. */
-    @PostMapping("/demo")
-    public SplitService.ExpenseView demo() {
-        return demo.run(FriendController.username());
     }
 
     @DeleteMapping("/{id}")

@@ -14,7 +14,8 @@ class NotificationParserTest {
         assertThat(n.bank().name()).isEqualTo("Nequi");
         assertThat(n.type()).isEqualTo("INGRESO");
         assertThat(n.amount()).isEqualByComparingTo("50000");
-        assertThat(n.description()).isEqualTo("Recibido de Juan Perez");
+        assertThat(n.label()).isEqualTo("Juan Perez");
+        assertThat(n.purchase()).isFalse();
     }
 
     @Test
@@ -27,7 +28,8 @@ class NotificationParserTest {
         assertThat(n.type()).isEqualTo("EGRESO");
         assertThat(n.amount()).isEqualByComparingTo("25500");
         assertThat(n.balance()).isEqualByComparingTo("1200000");
-        assertThat(n.description()).startsWith("Compra en EXITO CHAPINERO");
+        assertThat(n.label()).startsWith("EXITO CHAPINERO");
+        assertThat(n.purchase()).isTrue();
     }
 
     @Test
@@ -37,6 +39,8 @@ class NotificationParserTest {
 
         assertThat(n.bank().name()).isEqualTo("Daviplata");
         assertThat(n.type()).isEqualTo("EGRESO");
+        assertThat(n.purchase()).isFalse();
+        assertThat(n.label()).isEqualTo("Maria Gomez");
         assertThat(n.amount()).isEqualByComparingTo("1000000");
     }
 

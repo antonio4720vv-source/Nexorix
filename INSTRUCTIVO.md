@@ -1,95 +1,113 @@
-# Instructivo: dejar Nexorix real y funcionando en celulares
+# Instructivo: Nexorix real, instalable en celular y computador
 
-## 0. Qué es real hoy y qué no
+## 0. Cómo entran los datos (todo es real, no hay demos)
 
-| Cómo entran los datos | Real | Costo | Estado |
-|---|---|---|---|
-| Notificaciones de tus apps de banco (app Android de `android/`) | Sí | Gratis | Listo |
-| Extractos PDF/CSV en el Contador | Sí | Gratis | Listo |
-| Escribir movimientos a mano | Sí | Gratis | Listo |
-| Conexión directa al banco (saldos y movimientos solos) | Sí | **De pago** | No incluido |
+| Vía | Costo | Qué hace |
+|---|---|---|
+| Notificaciones de tus apps de banco (app Android de `android/`) | Gratis | Crea la cuenta del banco y registra cada ingreso, gasto o transferencia, con antifraude y pregunta por WhatsApp |
+| Extractos PDF/CSV en el Contador | Gratis | Importa meses completos |
+| Escribir movimientos y cuentas a mano | Gratis | Siempre disponible |
+| Conexión directa al banco (agregador: Belvo, Prometeo, Plaid) | **De pago** | El webhook `/api/bank/webhook` ya está listo; falta contratar y poner `BANK_WEBHOOK_SECRET` |
 
-Los agregadores bancarios que cubren Colombia ([Belvo](https://belvo.com/plans-and-pricing/), Prometeo) solo
-regalan un *sandbox* con datos de mentira; para datos reales hay que contratar, pasar una reunión y una
-certificación. No existe un plan gratis de producción que yo haya podido confirmar, por eso no se integró.
-Cuando quieras pagar uno, dime cuál y se agrega.
+El saldo de una cuenta nueva es opcional: si no lo escribes empieza en cero y se corrige solo cuando un aviso del banco trae
+el «saldo disponible».
 
-## 1. Servidor con HTTPS (obligatorio para celulares)
+## 1. Variables de entorno (IntelliJ → Run → Edit Configurations → Environment variables)
 
-El celular, la app Android y los webhooks de Didit y Meta exigen una dirección `https://` pública.
+Plantilla completa en `.env.example`. **Nunca pegues llaves en chats ni las subas a git.**
 
-- **Pruebas**: `ngrok http 8080` o Cloudflare Tunnel. Copia la dirección `https://...` que te dan.
-- **Producción**: cualquier hosting que ejecute Java 21 (Render, Fly.io, Railway, un VPS). Revisa sus precios
-  vigentes: los planes gratis suelen dormir el servidor, lo que no sirve para recibir avisos.
-- **PostgreSQL 18**: el de tu hosting, o uno gestionado (Neon, Supabase). Define
-  `SPRING_DATASOURCE_URL` (`jdbc:postgresql://HOST:5432/BASE`), `SPRING_DATASOURCE_USERNAME` y `NEXORIX_DB_PASSWORD`.
+| Variable | Obligatoria | Valor |
+|---|---|---|
+| `NEXORIX_DB_URL`, `NEXORIX_DB_USER`, `NEXORIX_DB_PASSWORD` | Sí | PostgreSQL. Usa una contraseña larga y aleatoria |
+| `NEXORIX_PUBLIC_URL` | Sí | `https://tu-dominio` (sin `/` al final) |
+| `NEXORIX_COOKIE_SECURE` | Sí en producción | `true` |
+| `NEXORIX_DATA_KEY` | **Sí en producción** | `openssl rand -base64 32`. Cifra cédula, correo y celular. **Guárdala aparte; si se pierde, esos datos no se recuperan.** Con `NEXORIX_COOKIE_SECURE=true` la app **no arranca** sin ella |
+| `DIDIT_API_KEY`, `DIDIT_WORKFLOW_ID`, `DIDIT_WEBHOOK_SECRET` | Sí | Paso 3 |
+| `GEMINI_API_KEY`, `NEXORIX_AI_MODEL`, `NEXORIX_AI_FAST_MODEL` | Recomendada | Paso 4 (pon el mismo modelo en las dos) |
+| `NEXORIX_MAIL_HOST/PORT/USERNAME/PASSWORD/FROM` | Recomendada | Paso 5 |
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_BUSINESS_PHONE`, `WHATSAPP_TEMPLATE_NAME`, `WHATSAPP_ALERT_TEMPLATE_NAME` | Para WhatsApp | Paso 6 |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Opcional | SMS de alertas críticas |
+| `BANK_WEBHOOK_SECRET` | Solo con agregador | `openssl rand -hex 32` |
 
-Variables de este paso:
+Después de cambiar variables, detén y vuelve a correr la app.
 
-| Variable | Valor |
+## 2. Servidor con HTTPS (obligatorio para celular, Didit y Meta)
+
+- **Pruebas**: ngrok (`ngrok http 8080`). El dominio gratis cambia o se cae si cierras ngrok; cada cambio obliga a actualizar
+  `NEXORIX_PUBLIC_URL` y los webhooks.
+- **Producción**: un dominio fijo con un hosting que ejecute Java 21 + PostgreSQL. Si hay un proxy delante, comprueba que
+  la IP del cliente llegue bien (`X-Forwarded-For`); si no, la defensa por IP vería a todos como una sola persona.
+- Haz copias de seguridad automáticas de PostgreSQL.
+
+## 3. Didit (identidad)
+
+1. <https://business.didit.me> → crea un *workflow* (documento + rostro) → copia **API key** y **Workflow ID**.
+2. *Webhooks*: URL `https://tu-dominio/api/kyc/webhook` → copia el **secreto de firma**.
+
+## 4. Gemini
+
+<https://aistudio.google.com/apikey> → crear llave. Activa la lectura de PDF difíciles, las categorías con IA, las notas de voz de WhatsApp y el agente Nexo.
+
+## 5. Correo (recuperar contraseña)
+
+Gmail: verificación en dos pasos → «Contraseñas de aplicaciones». `NEXORIX_MAIL_HOST=smtp.gmail.com`, `PORT=587`,
+`USERNAME` y `FROM` = tu correo, `PASSWORD` = la contraseña de aplicación.
+
+## 6. WhatsApp (Meta Cloud API)
+
+1. <https://developers.facebook.com> → app tipo **Empresa** → producto **WhatsApp**.
+2. *Configuración de la API*: **ID del número** → `WHATSAPP_PHONE_NUMBER_ID`; **token** → `WHATSAPP_TOKEN`.
+   El token temporal dura horas: para producción crea un **usuario del sistema** (Administrador comercial) con permiso
+   `whatsapp_business_messaging` y genera un token permanente.
+3. *Configuración → Básica*: **secreto de la app** → `WHATSAPP_APP_SECRET`.
+4. Inventa un texto largo → `WHATSAPP_VERIFY_TOKEN`. En *WhatsApp → Configuración → Webhook*: URL
+   `https://tu-dominio/api/whatsapp/webhook`, ese texto como token de verificación, y suscríbete a **messages**.
+5. **Plantillas** (WhatsApp solo deja escribir primero con una plantilla aprobada; categoría **Utilidad**, idioma español):
+   - **Compra** → nombre en `WHATSAPP_TEMPLATE_NAME`. Texto exacto, con **dos variables**:
+     `🛒 Nexorix: ¿En qué gastaste {{1}} en {{2}}? Respóndeme con una nota de voz 🎙️` (ejemplos: `$ 48.900` y `Éxito`).
+   - **Alerta** → nombre en `WHATSAPP_ALERT_TEMPLATE_NAME`. **Una** variable, que no puede ir al inicio ni al final:
+     `🚨 Nexorix – Alerta de seguridad: {{1}} Abre la app para revisarlo.` (ejemplo: `Bloqueamos $ 3.400.000 en Best Buy (Miami, US).`)
+   - Si el número de variables no coincide, Meta rechaza el envío. Espera la aprobación antes de probar.
+6. **Número**: el de prueba de Meta (+1 555…) solo escribe a máximo 5 destinatarios que registres. Para el público necesitas tu
+   propio número verificado en tu cuenta de WhatsApp Business → `WHATSAPP_BUSINESS_PHONE` (solo dígitos, con indicativo).
+7. **Cómo se conecta una persona**: en Compras escribe su número, recibe un código y lo envía por WhatsApp al número del negocio.
+   Desde ese momento cada compra le pregunta *«¿en qué gastaste…?»* y responde con una nota de voz.
+8. **Probar**: agrega una cuenta, registra un gasto (o recibe un aviso del banco) y revisa que llegue el mensaje y que la
+   respuesta llene la tabla en Compras. Si no llega: revisa que la plantilla esté **aprobada**, los nombres de las variables de
+   entorno, y los registros del servidor (`WhatsApp respondio HTTP…` dice el motivo).
+
+## 7. Instalar Nexorix como app (celular y computador)
+
+Nexorix es una **PWA**: se instala desde el navegador, sin tienda, con su icono, en su propia ventana y con un aviso sin conexión.
+La dirección tiene que ser `https://` y fija.
+
+| Dispositivo | Cómo |
 |---|---|
-| `NEXORIX_PUBLIC_URL` | `https://tu-dominio` (sin `/` al final) |
-| `NEXORIX_COOKIE_SECURE` | `true` |
-| `NEXORIX_DB_PASSWORD` | contraseña de PostgreSQL |
+| Android (Chrome) | Abre la dirección → franja «Instalar Nexorix» (o menú ⋮ → *Instalar app*) |
+| Computador (Chrome o Edge) | Icono de instalar en la barra de direcciones, o *Ajustes → Instalar la app* dentro de Nexorix |
+| iPhone / iPad (Safari) | Compartir → *Añadir a pantalla de inicio* (iOS no deja instalar con un botón) |
 
-## 2. Didit (verificación de identidad) — obligatorio
+Para que cualquiera la encuentre en tiendas:
+- **Google Play y Microsoft Store**: <https://www.pwabuilder.com> empaqueta la PWA (Android: Trusted Web Activity). Te entrega un
+  archivo `assetlinks.json`; ponlo en `src/main/resources/static/.well-known/assetlinks.json`. Play exige cuenta de desarrollador (pago único).
+- **App Store**: requiere un envoltorio (por ejemplo Capacitor), Mac y cuenta Apple Developer (pago anual). No incluido.
 
-1. Crea cuenta en <https://business.didit.me> y un **workflow** de verificación (documento + rostro).
-2. Copia la **API key** → `DIDIT_API_KEY` y el **Workflow ID** → `DIDIT_WORKFLOW_ID`.
-3. En *Webhooks* pon la URL `https://tu-dominio/api/kyc/webhook` y copia el **secreto de firma** → `DIDIT_WEBHOOK_SECRET`.
+## 8. App Android de notificaciones (opcional pero recomendada)
 
-## 3. Gemini (IA) — recomendado
+1. Abre `android/` en Android Studio (JDK 17) → *Build → Build APK*. Instálala en el celular.
+2. En Nexorix: **Panel → Notificaciones del celular → Activar**; copia la dirección y la llave (se muestra una sola vez).
+3. En la app: pega ambas → **Guardar** → **Dar acceso a las notificaciones** → activa Nexorix.
+4. Ajustes → Apps → Nexorix Notificaciones → Batería: **Sin restricciones** (si no, Android la cierra).
+5. Solo se envían avisos que mencionan un banco conocido y traen un monto. iPhone no permite leer notificaciones de otras apps.
 
-1. <https://aistudio.google.com/apikey> → *Create API key* → `GEMINI_API_KEY`.
-2. Activa lectura de PDF difíciles, categorías con IA y el agente Nexo. Sin la llave, esas funciones se apagan.
+## 9. Lista antes de publicar
 
-## 4. Correo (recuperar contraseña) — recomendado
-
-Con Gmail: activa la verificación en dos pasos y crea una **contraseña de aplicación** (Cuenta de Google → Seguridad).
-
-| Variable | Valor |
-|---|---|
-| `NEXORIX_MAIL_HOST` | `smtp.gmail.com` |
-| `NEXORIX_MAIL_PORT` | `587` |
-| `NEXORIX_MAIL_USERNAME` | tu correo |
-| `NEXORIX_MAIL_PASSWORD` | la contraseña de aplicación |
-| `NEXORIX_MAIL_FROM` | tu correo |
-
-## 5. WhatsApp Cloud API (compras por voz) — opcional
-
-1. <https://developers.facebook.com> → *Crear app* → tipo **Empresa** → agrega el producto **WhatsApp**.
-2. En *Configuración de la API* copia el **token** → `WHATSAPP_TOKEN` y el **ID del número** → `WHATSAPP_PHONE_NUMBER_ID`.
-3. *Configuración → Básica*: copia el **secreto de la app** → `WHATSAPP_APP_SECRET`.
-4. Inventa un texto → `WHATSAPP_VERIFY_TOKEN`. En *WhatsApp → Configuración → Webhook* pon
-   `https://tu-dominio/api/whatsapp/webhook`, ese mismo texto como token de verificación, y suscríbete a **messages**.
-5. Crea una **plantilla** de mensaje (categoría utilidad), espera su aprobación y pon su nombre en
-   `WHATSAPP_TEMPLATE_NAME` (y el idioma en `WHATSAPP_TEMPLATE_LANGUAGE`, por defecto `es`).
-6. Opcional: `WHATSAPP_BUSINESS_PHONE` con el número, para mostrar el enlace `wa.me`.
-
-> El token temporal de Meta vence en horas; para producción crea un **usuario del sistema** con token permanente.
-
-## 6. App Android de notificaciones
-
-1. Abre la carpeta `android/` con Android Studio (JDK 17) y *Build → Build APK*. Instala el APK en el celular
-   (permite «instalar apps desconocidas»). Para publicarla en Play Store necesitas una cuenta de desarrollador (pago único).
-2. En Nexorix: **Panel → Notificaciones del celular → Activar**. Copia la dirección y la llave (se muestra una sola vez).
-3. En la app pega ambas y toca **Guardar**; luego **Dar acceso a las notificaciones** y activa Nexorix.
-4. Haz una compra o recibe una transferencia pequeña y revisa que aparezca en el Panel.
-
-Android puede cerrar la app para ahorrar batería: en *Ajustes → Apps → Nexorix Notificaciones → Batería* elige
-**Sin restricciones**. iPhone no permite leer notificaciones de otras apps; allí usa el Contador o el registro manual.
-
-## 7. Instalar Nexorix como app en el celular
-
-- **Android (Chrome)**: abre `https://tu-dominio/login.html` → menú ⋮ → *Instalar app*.
-- **iPhone (Safari)**: abre la dirección → botón Compartir → *Añadir a pantalla de inicio*.
-
-## 8. Lista antes de publicar
-
-- [ ] Todo lo de los pasos 1 y 2 configurado; la app arranca sin errores.
+- [ ] Llaves rotadas si alguna se compartió; todas solo en variables de entorno.
+- [ ] `NEXORIX_COOKIE_SECURE=true` y `NEXORIX_DATA_KEY` guardada en un lugar seguro y aparte.
 - [ ] Registro con una cédula real: Didit aprueba y llega el webhook.
-- [ ] Una notificación real de **cada banco** que uses queda registrada (los textos de los bancos cambian; si alguno no se
-      reconoce, dime el texto de ejemplo, sin datos personales, y se ajusta el lector).
-- [ ] Probado en un Android y un iPhone reales.
-- [ ] Copias de seguridad de PostgreSQL activadas.
-- [ ] Política de privacidad y términos publicados: manejas datos financieros y de identidad (Ley 1581 de 2012, Colombia).
+- [ ] Plantillas de WhatsApp **aprobadas** y probadas con un gasto real.
+- [ ] Una notificación real de **cada banco** que uses queda registrada. Los textos de los bancos cambian: si alguno no se reconoce,
+      pasa el texto de ejemplo (sin datos personales) y se ajusta el lector.
+- [ ] Probado en un Android, un iPhone y un computador.
+- [ ] Copias de seguridad de PostgreSQL.
+- [ ] Política de privacidad y términos publicados (manejas datos financieros y de identidad; Ley 1581 de 2012, Colombia).

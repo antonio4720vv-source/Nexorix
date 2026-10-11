@@ -55,13 +55,27 @@ class FraudAlertNotifierTest {
     }
 
     @Test
-    void sinClavesLaAlertaQuedaComoDemoEnAmbosCanales() {
+    void sinClavesLaAlertaQuedaComoSinConfigurarEnAmbosCanales() {
         when(whatsapp.isEnabled()).thenReturn(false);
         when(sms.send("573001234567", "sms")).thenReturn(false);
 
         notifier.deliver(event);
 
-        assertThat(notification.getChannels()).isEqualTo("APP,WHATSAPP(demo),SMS(demo)");
+        assertThat(notification.getChannels()).isEqualTo("APP,WHATSAPP(sin configurar),SMS(sin configurar)");
+    }
+
+    @Test
+    void conPlantillaDeAlertaSaleComoPlantillaYNoComoTextoLibre() {
+        ReflectionTestUtils.setField(notifier, "alertTemplate", "nexorix_alerta");
+        when(whatsapp.isEnabled()).thenReturn(true);
+        when(whatsapp.sendTemplate("573001234567", "nexorix_alerta", "es", java.util.List.of("sms")))
+                .thenReturn("wamid.2");
+        when(sms.send("573001234567", "sms")).thenReturn(true);
+
+        notifier.deliver(event);
+
+        assertThat(notification.getChannels()).isEqualTo("APP,WHATSAPP,SMS");
+        org.mockito.Mockito.verify(whatsapp, org.mockito.Mockito.never()).sendText(any(), any());
     }
 
     @Test
