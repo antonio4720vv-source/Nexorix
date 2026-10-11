@@ -1,5 +1,6 @@
 package com.nexorix.account;
 
+import com.nexorix.bank.BankCatalog;
 import com.nexorix.user.User;
 import com.nexorix.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -78,7 +79,11 @@ public class AccountService {
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado."));
 
         String cleanName = text(name, "El nombre de la cuenta es obligatorio.", 100);
-        String cleanBank = text(bank, "El banco o billetera es obligatorio.", 100);
+        text(bank, "El banco o billetera es obligatorio.", 100);
+        String cleanBank = BankCatalog.byName(bank)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Elige un banco o billetera de la lista."))
+                .name();
 
         String cleanType = type == null ? "" : type.trim().toUpperCase(Locale.ROOT);
         if (!TYPES.contains(cleanType)) {

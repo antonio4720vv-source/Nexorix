@@ -198,6 +198,47 @@ public class TransactionService {
         return transactionRepository.save(transaction);
     }
 
+    /**
+     * Guarda un movimiento que llego como notificacion del celular. Igual que
+     * un extracto, no suma al saldo (el banco ya lo descontó); si la notificación
+     * trae el saldo, la cuenta se actualiza a ese valor. Si es un gasto, Nexorix
+     * pregunta por WhatsApp qué se compró.
+     */
+    @Transactional
+    public Transaction saveFromNotification(
+            Account account,
+            BigDecimal amount,
+            String type,
+            String description,
+            LocalDateTime transactionDate,
+            String reference,
+            BigDecimal reportedBalance
+    ) {
+        Transaction transaction = new Transaction(
+                amount.setScale(2, RoundingMode.HALF_UP),
+                type,
+                description,
+                transactionDate,
+                account,
+                reference
+        );
+        transaction.setCategory(TransactionClassifier.classify(description, type));
+        transaction.setSource("NOTIFICATION");
+        transaction = transactionRepository.save(transaction);
+
+        if (reportedBalance != null && reportedBalance.compareTo(MAX_AMOUNT) <= 0) {
+            account.setBalance(reportedBalance.setScale(2, RoundingMode.HALF_UP));
+            accountRepository.save(account);
+        }
+
+        if (type.equals("EGRESO")) {
+            events.publishEvent(new PurchaseRegisteredEvent(
+                    transaction.getId(), account.getUser().getId(), transaction.getAmount(),
+                    transaction.getDescription(), transaction.getTransactionDate()));
+        }
+        return transaction;
+    }
+
     public List<Transaction> getRecentTransactionsByUsername(String username) {
         return transactionRepository.findByAccountUserUsernameOrderByTransactionDateDesc(username);
     }

@@ -49,6 +49,8 @@ public class AbuseProtectionFilter extends OncePerRequestFilter {
                     "Se crearon muchas cuentas desde tu red. Intenta más tarde."),
             new Rule("POST", "/api/recovery/start", new RateLimiter(10, Duration.ofMinutes(30)),
                     "Demasiadas solicitudes de recuperación. Intenta más tarde."),
+            new Rule("POST", "/api/notifications/ingest", new RateLimiter(300, Duration.ofMinutes(5)),
+                    "Demasiados avisos desde tu red. Espera unos minutos."),
             new Rule("POST", "/api/recovery/code", new RateLimiter(20, Duration.ofMinutes(15)),
                     "Demasiados intentos. Espera unos minutos.")
     );

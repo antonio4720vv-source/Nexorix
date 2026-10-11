@@ -79,6 +79,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/whatsapp/webhook").permitAll()
                         // Webhook del banco (agregador tipo Plaid/Prometeo): firmado con HMAC.
                         .requestMatchers(HttpMethod.POST, "/api/bank/webhook").permitAll()
+                        // Avisos del celular: la app los envia con su propia llave, sin sesion.
+                        .requestMatchers(HttpMethod.POST, "/api/notifications/ingest").permitAll()
                         .requestMatchers("/api/users/logout").permitAll()
                         // Todo lo demas de la API exige sesion iniciada.
                         .requestMatchers("/api/**").authenticated()
