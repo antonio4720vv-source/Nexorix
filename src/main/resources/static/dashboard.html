@@ -46,6 +46,7 @@
         <button class="button secondary" type="button" data-open="transferSheet">Transferencia entre mis cuentas</button>
         <a class="button secondary" href="/contador.html">Contador</a>
         <button class="button secondary" type="button" data-open="accountSheet">Agregar cuenta</button>
+        <button class="button secondary" type="button" data-open="notifySheet">Notificaciones del celular</button>
     </div>
 
     <!-- Bienvenida: todavia no tiene cuentas -->
@@ -57,8 +58,12 @@
         </p>
         <div class="actions">
             <button class="button light" type="button" data-open="accountSheet">Agregar mi primera cuenta</button>
-            <button class="button" type="button" id="demoButton">Ver con datos de ejemplo</button>
+            <button class="button" type="button" data-open="notifySheet">Prefiero no agregarla ahora</button>
         </div>
+        <p class="muted" style="margin-top:.75rem;font-size:.85rem">
+            Sin problema: puedes dejar que Nexorix lea las notificaciones de tus apps de banco
+            en el celular y arme tus cuentas y movimientos solo.
+        </p>
     </section>
 
     <!-- Lo principal: el dinero real -->
@@ -176,13 +181,9 @@
 
         <div class="field">
             <label for="accountBank">Banco o billetera</label>
-            <input id="accountBank" list="banks" maxlength="100" autocomplete="off" required>
-            <datalist id="banks">
-                <option value="Bancolombia"><option value="Davivienda"><option value="Nequi">
-                <option value="Daviplata"><option value="Nu"><option value="Lulo Bank">
-                <option value="BBVA"><option value="Banco de Bogotá"><option value="Banco Popular">
-                <option value="Scotiabank Colpatria"><option value="Banco Caja Social"><option value="Movii">
-            </datalist>
+            <select id="accountBank" required>
+                <option value="">Elige tu banco o billetera</option>
+            </select>
         </div>
         <div class="field">
             <label for="accountName">Nombre para reconocerla</label>
@@ -206,6 +207,43 @@
 
         <div class="sheet-actions">
             <button class="button" type="submit" id="accountSubmit">Guardar cuenta</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Ventana: recibir movimientos desde las notificaciones del celular -->
+<dialog class="sheet" id="notifySheet" aria-labelledby="notifySheetTitle">
+    <form class="sheet-body" id="notifyForm" novalidate>
+        <div class="sheet-head">
+            <h2 id="notifySheetTitle">Notificaciones del celular</h2>
+            <button class="close-button" type="button" data-close aria-label="Cerrar">&times;</button>
+        </div>
+        <p class="lead">
+            Nexorix registra tus ingresos y gastos a partir de los avisos de tus apps de banco
+            (Nequi, Bancolombia, Daviplata...), sin que tengas que agregar tus cuentas.
+        </p>
+        <p class="muted" id="notifyStatus" style="font-size:.9rem"></p>
+        <div id="notifySteps" hidden>
+            <ol style="padding-left:1.2rem;display:grid;gap:.4rem;font-size:.92rem">
+                <li>Instala la app <b>Nexorix Notificaciones</b> en tu celular Android.</li>
+                <li>Pega esta dirección y esta llave en la app (la llave solo se muestra ahora):</li>
+            </ol>
+            <div class="field"><label for="notifyUrl">Dirección</label>
+                <input id="notifyUrl" readonly></div>
+            <div class="field"><label for="notifyToken">Llave</label>
+                <input id="notifyToken" readonly></div>
+            <ol start="3" style="padding-left:1.2rem;display:grid;gap:.4rem;font-size:.92rem">
+                <li>En la app toca «Dar acceso a las notificaciones» y activa Nexorix.</li>
+            </ol>
+        </div>
+        <p class="muted" style="font-size:.82rem">
+            Solo se envían avisos que mencionan un banco y traen un monto. Nexorix no guarda el texto
+            del aviso, únicamente el movimiento. Puedes desactivarlo cuando quieras.
+            En iPhone no es posible leer notificaciones de otras apps.
+        </p>
+        <div class="sheet-actions">
+            <button class="button" type="submit" id="notifyConnect">Activar</button>
+            <button class="button secondary" type="button" id="notifyDisconnect" hidden>Desactivar</button>
         </div>
     </form>
 </dialog>
@@ -341,7 +379,7 @@
     // ============================================================
 
     function openSheet(id) {
-        if (id !== "accountSheet" && accounts.length === 0) {
+        if (id !== "accountSheet" && id !== "notifySheet" && accounts.length === 0) {
             Nexorix.toast("Primero agrega una cuenta.", "error");
             id = "accountSheet";
         }
@@ -357,6 +395,7 @@
             $("transferTo").selectedIndex = 1;
         }
         sheet.showModal();
+        if (id === "notifySheet") loadNotifyStatus();
         const first = sheet.querySelector("input:not([type=radio]), select");
         if (first) first.focus();
     }
@@ -468,45 +507,64 @@
     });
 
     // ============================================================
-    // DATOS DE EJEMPLO (para mostrar el demo en segundos)
+    // BANCOS REALES
     // ============================================================
 
-    $("demoButton").addEventListener("click", async () => {
-        const button = $("demoButton");
-        button.disabled = true;
-        Nexorix.toast("Creando datos de ejemplo...");
+    (async function loadBanks() {
+        const result = await Nexorix.api("/api/banks");
+        if (!result.ok) return;
+        const select = $("accountBank");
+        result.data.forEach(bank => {
+            const option = document.createElement("option");
+            option.value = bank.name;
+            option.textContent = bank.name;
+            option.dataset.wallet = bank.wallet;
+            select.appendChild(option);
+        });
+        select.addEventListener("change", () => {
+            const chosen = select.selectedOptions[0];
+            if (chosen && chosen.value) {
+                $("accountType").value = chosen.dataset.wallet === "true" ? "BILLETERA" : "AHORROS";
+                if (!$("accountName").value.trim()) $("accountName").placeholder = chosen.value + " personal";
+            }
+        });
+    })();
 
-        try {
-            const create = async (path, params) => {
-                const result = await api(path + "?" + new URLSearchParams(params), { method: "POST" });
-                if (!result.ok) {
-                    throw new Error(Nexorix.errorOf(result, "No fue posible crear el ejemplo."));
-                }
-                return result.data;
-            };
+    // ============================================================
+    // NOTIFICACIONES DEL CELULAR
+    // ============================================================
 
-            const nequi = await create("/api/accounts",
-                { name: "Nequi (ejemplo)", bank: "Nequi", type: "BILLETERA", balance: 3000000 });
-            const davi = await create("/api/accounts",
-                { name: "Davivienda (ejemplo)", bank: "Davivienda", type: "AHORROS", balance: 0 });
-            const nu = await create("/api/accounts",
-                { name: "Nu (ejemplo)", bank: "Nu", type: "AHORROS", balance: 0 });
+    async function loadNotifyStatus() {
+        $("notifySteps").hidden = true;
+        const result = await api("/api/notifications/connection");
+        const connected = result.ok && result.data.connected;
+        $("notifyConnect").textContent = connected ? "Crear una llave nueva" : "Activar";
+        $("notifyDisconnect").hidden = !connected;
+        $("notifyStatus").textContent = !connected ? "Todavía no está activado."
+            : result.data.received > 0
+                ? `Activado. Has recibido ${result.data.received} movimientos por esta vía.`
+                : "Activado, esperando el primer aviso de tu celular.";
+    }
 
-            await create("/api/transactions/transfer",
-                { fromAccountId: nequi.id, toAccountId: davi.id, amount: 1000000 });
-            await create("/api/transactions/transfer",
-                { fromAccountId: nequi.id, toAccountId: nu.id, amount: 1000000 });
-            await create("/api/transactions",
-                { accountId: davi.id, type: "INGRESO", amount: 3000000, description: "Salario" });
-            await create("/api/transactions",
-                { accountId: nu.id, type: "EGRESO", amount: 500000, description: "Mercado" });
+    $("notifyForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const result = await api("/api/notifications/connection", { method: "POST" });
+        if (!result.ok) {
+            Nexorix.toast(Nexorix.errorOf(result, "No fue posible activar las notificaciones."), "error");
+            return;
+        }
+        $("notifyUrl").value = result.data.url;
+        $("notifyToken").value = result.data.token;
+        $("notifySteps").hidden = false;
+        $("notifyStatus").textContent = "Listo. Si ya tenías una llave, la anterior dejó de servir.";
+        $("notifyDisconnect").hidden = false;
+    });
 
-            Nexorix.toast("Listo. Ahora confirma las transferencias en \"Por confirmar\".");
-            await loadMoney();
-        } catch (error) {
-            Nexorix.toast(error.message, "error");
-        } finally {
-            button.disabled = false;
+    $("notifyDisconnect").addEventListener("click", async () => {
+        const result = await api("/api/notifications/connection", { method: "DELETE" });
+        if (result.ok) {
+            Nexorix.toast("Notificaciones desactivadas.");
+            loadNotifyStatus();
         }
     });
 

@@ -16,6 +16,8 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | Dividir gastos | Amigos por nombre de usuario, división en partes iguales y enlace de cobro para que cada amigo reembolse al pagador |
 | IA (Gemini) | Lee PDF difíciles o escaneados, mejora la clasificación y el agente **Nexo** responde preguntas con herramientas |
 | Reportes | PDF para el contador y CSV para Excel, con la parte real y la parte interna de cada movimiento |
+| Bancos reales | Las cuentas solo se crean con bancos y billeteras reales de Colombia (`GET /api/banks`); ya no hay datos de ejemplo |
+| Notificaciones del celular | Quien no quiere agregar sus cuentas activa «Notificaciones del celular»: la app de `android/` envía a `POST /api/notifications/ingest` (con una llave personal, guardada solo como huella SHA-256) los avisos de bancos; Nexorix crea la cuenta del banco y registra el movimiento, sin duplicados. iPhone no lo permite |
 | Compras por WhatsApp | Al registrar un gasto, Nexorix pregunta por WhatsApp **qué compraste**; respondes con una nota de voz y Gemini llena tu tabla personalizada |
 
 ## Páginas
