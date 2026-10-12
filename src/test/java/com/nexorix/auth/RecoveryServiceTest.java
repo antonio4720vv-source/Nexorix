@@ -112,6 +112,15 @@ class RecoveryServiceTest {
     }
 
     @Test
+    void siElCorreoFallaLaRespuestaEsLaMismaYNoSeRevelaNada() {
+        org.mockito.Mockito.doThrow(new RuntimeException("SMTP caido"))
+                .when(mailer).sendRecoveryCode(any(), any(), any());
+
+        // Antes esto lanzaba la excepcion (500) solo para las cuentas que SI existen.
+        assertThat(service.start("anaprueba9")).isPresent();
+    }
+
+    @Test
     void enviaUnCodigoDeSeisDigitosAlCorreo() {
         String code = pedirCodigo();
 

@@ -68,4 +68,20 @@ class NotificationParserTest {
         assertThat(NotificationParser.parse("com.whatsapp", "", "Ana", "Recibiste $50.000 de mi parte")).isEmpty();
         assertThat(NotificationParser.parse("", "", "Nequi", "Recibiste un regalo")).isEmpty();
     }
+
+    @Test
+    void clasificaCadaAvisoSegunDeQueSeTrata() {
+        assertThat(NotificationParser.analyze("com.whatsapp", "WhatsApp", "Ana", "hola").kind())
+                .isEqualTo(NotificationParser.Kind.NOT_BANK);
+        assertThat(NotificationParser.analyze("", "Nequi", "Nequi", "Tu código es 482910").kind())
+                .isEqualTo(NotificationParser.Kind.SENSITIVE);
+        assertThat(NotificationParser.analyze("", "Bancolombia", "Aviso", "Actualiza tu app hoy").kind())
+                .isEqualTo(NotificationParser.Kind.INFO);
+        assertThat(NotificationParser.analyze("", "Nequi", "Aviso", "Gana $100.000 con tu primera compra").kind())
+                .isEqualTo(NotificationParser.Kind.INFO);
+        assertThat(NotificationParser.analyze("", "Davivienda", "Aviso", "Operación por $50.000 en proceso").kind())
+                .isEqualTo(NotificationParser.Kind.UNRECOGNIZED);
+        assertThat(NotificationParser.analyze("", "Nequi", "Nequi", "Recibiste $5.000 de Ana").kind())
+                .isEqualTo(NotificationParser.Kind.MOVEMENT);
+    }
 }

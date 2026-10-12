@@ -54,6 +54,25 @@ public class NotificationController {
         return ResponseEntity.ok(body);
     }
 
+    /** Historial: que paso con cada aviso de banco que llego del celular. */
+    @GetMapping("/notifications/log")
+    public ResponseEntity<List<Map<String, Object>>> log() {
+        String username = username();
+        if (username == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(service.recent(username).stream().map(n -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("receivedAt", n.getReceivedAt());
+            row.put("app", n.getAppName());
+            row.put("bank", n.getBank());
+            row.put("result", n.getResult());
+            row.put("summary", n.getSummary());
+            row.put("text", n.getSnippet());
+            return row;
+        }).toList());
+    }
+
     @PostMapping("/notifications/connection")
     public ResponseEntity<Map<String, Object>> connect(HttpServletRequest request) {
         String username = username();

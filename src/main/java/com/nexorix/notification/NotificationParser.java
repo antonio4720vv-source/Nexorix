@@ -10,19 +10,29 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Entiende las notificaciones de los bancos colombianos ("Recibiste $50.000 de
- * Ana", "Compra por $25.000 en Exito"...). Si no es un movimiento de dinero
- * (promociones, claves, avisos) o no se entiende el monto, devuelve vacio:
- * mejor ignorarla que registrar algo mal.
+ * Entiende las notificaciones de los bancos colombianos ("Recibiste $50.000 de Ana",
+ * "Compra por $25.000 en Exito"...). Antes de interpretar nada decide de que se trata:
+ * no es de un banco, trae una clave o codigo (nunca se guarda su texto), es informativa,
+ * parece un movimiento pero no se entendio, o es un movimiento.
  */
 public final class NotificationParser {
+
+    /** De que se trata un aviso. */
+    public enum Kind { NOT_BANK, SENSITIVE, INFO, UNRECOGNIZED, MOVEMENT }
+
+    /** Resultado del analisis. bank y movement pueden ser null segun el tipo. */
+    public record Analysis(Kind kind, Bank bank, ParsedNotification movement) {
+    }
 
     private static final Pattern MONEY = Pattern.compile("\\$\\s*([0-9][0-9.,]*)");
     private static final Pattern PARTY = Pattern.compile(
             "\\b(?:de|a|en|para)\\s+([\\p{L}0-9][\\p{L}0-9 &'.\\-]{1,50})");
 
-    private static final String[] IGNORE = {"rechazad", "no fue posible", "fallid", "no se pudo", "codigo",
-            "clave", "otp", "promocion", "gana ", "oferta", "te prestamos", "aprobado para"};
+    /** Claves, codigos y datos con los que se puede entrar a una cuenta: no se guardan. */
+    private static final String[] SENSITIVE = {"codigo", "clave", "otp", "contrasena", "token", "pin "};
+    /** Avisos que no son un movimiento hecho: rechazos, promociones, ofertas. */
+    private static final String[] NOT_A_MOVEMENT = {"rechazad", "no fue posible", "fallid", "no se pudo",
+            "promocion", "gana ", "oferta", "te prestamos", "aprobado para"};
     private static final String[] INCOME = {"recibiste", "te enviaron", "te llegaron", "te llego", "te pagaron",
             "te transfirieron", "transferencia recibida", "abono", "consignacion", "deposito", "ingreso",
             "recibido"};
@@ -33,34 +43,42 @@ public final class NotificationParser {
     private NotificationParser() {
     }
 
+    /** Atajo: el movimiento entendido, o vacio. */
+    public static Optional<ParsedNotification> parse(String packageName, String appName, String title, String text) {
+        return Optional.ofNullable(analyze(packageName, appName, title, text).movement());
+    }
+
     /**
      * @param appName el nombre de la app en el celular ("Nequi", "Bancolombia"): es lo primero que se mira
      *                para saber el banco; si no alcanza, se busca en el paquete, el titulo y el texto.
      */
-    public static Optional<ParsedNotification> parse(String packageName, String appName, String title, String text) {
+    public static Analysis analyze(String packageName, String appName, String title, String text) {
         String safeTitle = title == null ? "" : title;
         String safeText = text == null ? "" : text;
         String all = safeTitle + " " + safeText;
         String plain = StatementValues.stripAccents(all.toLowerCase());
 
-        for (String word : IGNORE) {
-            if (plain.contains(word)) {
-                return Optional.empty();
-            }
-        }
-
-        Optional<Bank> bank = BankCatalog.detect(appName == null ? "" : appName)
+        Optional<Bank> found = BankCatalog.detect(appName == null ? "" : appName)
                 .or(() -> BankCatalog.detect(packageName == null ? "" : packageName.replace('.', ' '),
                         safeTitle, safeText));
-        String type = direction(plain);
-        if (bank.isEmpty() || type == null) {
-            return Optional.empty();
+        if (found.isEmpty()) {
+            return new Analysis(Kind.NOT_BANK, null, null);
+        }
+        Bank bank = found.get();
+
+        if (containsAny(plain, SENSITIVE)) {
+            return new Analysis(Kind.SENSITIVE, bank, null);
+        }
+        if (containsAny(plain, NOT_A_MOVEMENT)) {
+            return new Analysis(Kind.INFO, bank, null);
         }
 
         BigDecimal amount = null;
         BigDecimal balance = null;
         Matcher money = MONEY.matcher(all);
+        boolean hasMoney = false;
         while (money.find()) {
+            hasMoney = true;
             BigDecimal value = StatementValues.parseAmount(money.group(1));
             if (value == null || value.signum() <= 0) {
                 continue;
@@ -75,8 +93,11 @@ public final class NotificationParser {
                 amount = value;
             }
         }
-        if (amount == null) {
-            return Optional.empty();
+
+        String type = direction(plain);
+        if (type == null || amount == null) {
+            // Con un monto pero sin entender que paso: se guarda para revisarlo. Sin monto: informativo.
+            return new Analysis(hasMoney ? Kind.UNRECOGNIZED : Kind.INFO, bank, null);
         }
 
         String body = safeText.isBlank() ? safeTitle : safeText;
@@ -85,7 +106,12 @@ public final class NotificationParser {
         boolean purchase = type.equals("EGRESO") && !sent
                 && (withdrawal || plain.contains("compra") || plain.contains("pagaste") || plain.contains("pago"));
         String label = withdrawal ? "Retiro en cajero" : counterparty(body);
-        return Optional.of(new ParsedNotification(bank.get(), type, amount, label, purchase, balance));
+        return new Analysis(Kind.MOVEMENT, bank,
+                new ParsedNotification(bank, type, amount, label, purchase, balance));
+    }
+
+    private static boolean containsAny(String text, String[] words) {
+        return firstIndex(text, words) >= 0;
     }
 
     private static String direction(String plain) {

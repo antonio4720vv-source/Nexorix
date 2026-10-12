@@ -46,6 +46,7 @@ Plataforma de análisis, conciliación y trazabilidad financiera. Java 21 · Spr
 | `GET/POST /api/whatsapp/webhook` | Webhook de Meta (público, firmado con `X-Hub-Signature-256`) |
 | `POST /api/bank/webhook` | Webhook del agregador bancario (público, firmado con `X-Bank-Signature`) |
 | `GET/POST /api/bank/links` · `GET /api/bank/events` · `POST /api/bank/events/{id}/release` | Cuentas vinculadas, movimientos del banco y «fui yo» para liberar un bloqueo |
+| `GET /api/notifications/log` | Historial de cada aviso del celular: registrado, repetido, bloqueado, informativo, clave (sin texto) o no entendido (con su texto, cifrado) |
 | `GET /api/banks` | Catálogo de bancos y billeteras de Colombia (las cuentas solo se crean con estos nombres) |
 | `GET/POST/DELETE /api/notifications/connection` · `POST /api/notifications/ingest` | Llave del celular y recepción de avisos de banco |
 | `GET /api/push/key` · `POST /api/push/subscribe\|unsubscribe\|test` | Notificaciones del dispositivo |
@@ -115,6 +116,13 @@ Cada archivo que se sube deja una cadena de eventos en `import_audit_log`, con e
 - Plantilla (categoría *Utility*), con dos variables: `¿En qué gastaste {{1}} en {{2}}? Respóndeme con una nota de voz 🎙️`. Pon su nombre en `WHATSAPP_TEMPLATE_NAME`. Sin plantilla, Nexorix manda texto libre, que WhatsApp solo entrega si la persona escribió en las últimas 24 horas (sirve para probar).
 - Alertas de seguridad: plantilla *Utility* con una variable en medio del texto (Meta no deja variables al inicio ni al final): `🚨 Nexorix – Alerta de seguridad: {{1}} Abre la app para revisarlo.` Pon su nombre en `WHATSAPP_ALERT_TEMPLATE_NAME`. Sin ella, la alerta sale como texto libre y WhatsApp solo la entrega si la persona escribió en las últimas 24 horas (siempre sale además el SMS, si hay Twilio).
 - Sin `GEMINI_API_KEY` las notas de voz no se pueden entender; las respuestas de texto se guardan tal cual en la primera columna.
+
+## Avisos del celular: duplicados y antifraude
+
+- **Banco:** se identifica por el nombre de la app que mandó el aviso («Nequi», «Bancolombia»…); si no alcanza, por el paquete, el título y el texto. Lo que no es de un banco (chats, correos) no se guarda.
+- **Todo queda en el historial** (Seguridad → *Notificaciones recibidas del celular*). Los avisos con claves o códigos se registran **sin su texto**; los que parecen un movimiento pero no se entendieron guardan su texto (cifrado) para revisarlo y ajustar el lector.
+- **Duplicados:** el mismo aviso (texto y hora) o el mismo movimiento (banco, sentido, monto y comercio/persona) avisado dos veces en menos de **90 segundos** se registra una sola vez. Dos compras idénticas en el mismo comercio con menos de 90 s de diferencia se contarían como una (es el precio de ignorar los avisos repetidos). Al importar un extracto, los movimientos que ya llegaron por aviso se marcan como repetidos (mismo día, tipo y monto).
+- **Antifraude por distancia:** si el aviso nombra una ciudad (se reconocen las de Colombia y los destinos más comunes del exterior; palabras ambiguas como Roma, Lima o París se ignoran a propósito), se compara con la última compra con ubicación: una distancia que no se puede recorrer en el tiempo transcurrido (más de 900 km/h y mínimo 150 km) bloquea el movimiento, avisa en la app, por WhatsApp y SMS, y la persona lo libera con «Fui yo». **Si el aviso no dice la ciudad (varios bancos no la incluyen) no hay forma de medir distancias**: en ese caso solo actúan las reglas de comercio inusual y destinatario nuevo.
 
 ## Bancos en vivo y antifraude
 

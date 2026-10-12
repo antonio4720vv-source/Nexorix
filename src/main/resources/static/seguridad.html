@@ -77,6 +77,12 @@
     </section>
 
     <section class="panel stack">
+        <div class="panel-head"><h2>Notificaciones recibidas del celular</h2></div>
+        <p class="muted" style="margin:0">Cada aviso de tus apps de banco y qué hizo Nexorix con él. Las claves y códigos nunca se guardan. Si algún aviso «no se entendió», el texto queda aquí para que lo revises.</p>
+        <div id="notifLog" class="notif-log"></div>
+    </section>
+
+    <section class="panel stack">
         <div class="panel-head"><h2>Movimientos del banco</h2></div>
         <div class="table-wrap"><table id="events"></table></div>
     </section>
@@ -149,6 +155,26 @@
             : "<p>Aún no hay cuentas conectadas. Se crean solas con la primera notificación de tu banco.</p>";
     }
 
+    const LOG_RESULT = {
+        REGISTERED: ["ok", "Registrado"], DUPLICATE: ["done", "Repetido"], BLOCKED: ["bad", "Bloqueado"],
+        UNRECOGNIZED: ["warn", "No se entendió"], INFO: ["done", "Informativo"], SENSITIVE: ["done", "Clave (no se guarda)"]
+    };
+
+    async function loadNotifLog() {
+        const r = await api("/api/notifications/log");
+        if (!r.ok) return;
+        $("notifLog").innerHTML = r.data.length ? r.data.map((n) => {
+            const [cls, label] = LOG_RESULT[n.result] || ["done", n.result];
+            const who = [n.bank, n.app && n.app !== n.bank ? n.app : ""].filter(Boolean).join(" · ");
+            return `<div class="notif-item">
+                <div class="notif-top"><span class="pill ${cls}">${label}</span>
+                    <strong>${esc(who)}</strong><small>${esc(Nexorix.date(n.receivedAt))}</small></div>
+                <div>${esc(n.summary || "")}</div>
+                ${n.text ? `<small class="notif-text">«${esc(n.text)}»</small>` : ""}
+            </div>`;
+        }).join("") : '<p class="muted">Todavía no ha llegado ninguna notificación.</p>';
+    }
+
     async function loadEvents() {
         const r = await api("/api/bank/events");
         if (!r.ok) return;
@@ -173,7 +199,7 @@
             + list("Destinatarios frecuentes", r.data.recipients) + list("Lugares comunes", r.data.places) + "</div>";
     }
 
-    const refresh = () => Promise.all([loadNotifications(), loadEvents(), loadProfile(), loadLinks()]);
+    const refresh = () => Promise.all([loadNotifications(), loadEvents(), loadProfile(), loadLinks(), loadNotifLog()]);
 
     document.addEventListener("click", async (event) => {
         const button = event.target.closest("button");

@@ -22,20 +22,28 @@ public class RecoveryMailer {
 
     private final JavaMailSenderImpl sender;
     private final String from;
+    private final boolean production;
 
     public RecoveryMailer(
             @Value("${nexorix.mail.host:}") String host,
             @Value("${nexorix.mail.port:587}") int port,
             @Value("${nexorix.mail.username:}") String username,
             @Value("${nexorix.mail.password:}") String password,
-            @Value("${nexorix.mail.from:}") String from
+            @Value("${nexorix.mail.from:}") String from,
+            @Value("${server.servlet.session.cookie.secure:false}") boolean production
     ) {
         this.from = from.isBlank() ? username : from;
+        this.production = production;
 
         if (host.isBlank()) {
             this.sender = null;
-            log.warn("Correo NO configurado: los codigos de recuperacion se mostraran "
-                    + "en la consola. Esto solo sirve para desarrollo.");
+            if (production) {
+                log.error("Correo NO configurado en PRODUCCION: nadie podra recuperar su cuenta. "
+                        + "Configura NEXORIX_MAIL_HOST, NEXORIX_MAIL_USERNAME y NEXORIX_MAIL_PASSWORD.");
+            } else {
+                log.warn("Correo NO configurado: los codigos de recuperacion se mostraran "
+                        + "en la consola. Esto solo sirve para desarrollo.");
+            }
             return;
         }
 
@@ -60,8 +68,14 @@ public class RecoveryMailer {
     public void sendRecoveryCode(String to, String name, String code) {
 
         if (sender == null) {
-            log.warn("=== CODIGO DE RECUPERACION (solo desarrollo) para {}: {} ===",
-                    maskEmail(to), code);
+            // En produccion el codigo nunca se escribe en el log: quien lea los registros podria usarlo.
+            if (production) {
+                log.error("No se pudo enviar el codigo de recuperacion a {}: el correo no esta configurado.",
+                        maskEmail(to));
+            } else {
+                log.warn("=== CODIGO DE RECUPERACION (solo desarrollo) para {}: {} ===",
+                        maskEmail(to), code);
+            }
             return;
         }
 

@@ -126,7 +126,14 @@ public class RecoveryService {
                 now.plus(CODE_LIFETIME)
         ));
 
-        mailer.sendRecoveryCode(user.getEmail(), user.getName(), code);
+        try {
+            mailer.sendRecoveryCode(user.getEmail(), user.getName(), code);
+        } catch (RuntimeException exception) {
+            // Si el correo falla (clave del SMTP mala, servidor caido) la respuesta sigue siendo la misma de siempre:
+            // no se revela si la cuenta existe. La persona puede pedir otro codigo en un minuto.
+            log.error("No se pudo enviar el codigo de recuperacion del usuario {}: {}",
+                    user.getUsername(), exception.getMessage());
+        }
 
         return Optional.of(request.getId());
     }

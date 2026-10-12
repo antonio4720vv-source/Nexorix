@@ -47,11 +47,17 @@ class BankNotificationService : NotificationListenerService() {
         thread(name = "nexorix-send") { send(url, token, body) }
     }
 
+    /**
+     * Es de un banco si la app (su nombre o paquete) lo es. Un texto que solo MENCIONA un banco
+     * (un chat, un correo) cuenta unicamente si trae un monto con "$".
+     */
     private fun looksLikeBank(pkg: String, appName: String, title: String, text: String): Boolean {
+        fun clean(value: String) = " ${value.lowercase().replace(Regex("[^\\p{L}0-9]+"), " ")} "
+        val fromApp = clean("${pkg.replace('.', ' ')} $appName")
+        if (BANKS.any { fromApp.contains(" $it ") }) return true
         if (!text.contains('$') && !title.contains('$')) return false
-        val haystack = " ${pkg.replace('.', ' ')} $appName $title $text ".lowercase()
-            .replace(Regex("[^\\p{L}0-9]+"), " ")
-        return BANKS.any { haystack.contains(" $it ") }
+        val content = clean("$title $text")
+        return BANKS.any { content.contains(" $it ") }
     }
 
     private fun send(url: String, token: String, body: String) {
